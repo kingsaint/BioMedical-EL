@@ -65,7 +65,7 @@ def set_seed(args):
 def train(args, model, tokenizer):
     """ Train the model """
     if args.local_rank in [-1, 0]:
-        tb_writer = SummaryWriter()
+        #tb_writer = SummaryWriter()
 
         # Initial train dataloader
         if args.use_random_candidates:
@@ -262,10 +262,10 @@ def train(args, model, tokenizer):
                         args.local_rank == -1 and args.evaluate_during_training
                     ):  # Only evaluate when single GPU otherwise metrics may not average well
                         results = evaluate(args, model, tokenizer)
-                        for key, value in results.items():
-                            tb_writer.add_scalar("eval_{}".format(key), value, global_step)
-                    tb_writer.add_scalar("lr", scheduler.get_lr()[0], global_step)
-                    tb_writer.add_scalar("loss", (tr_loss - logging_loss) / args.logging_steps, global_step)
+                        #for key, value in results.items():
+                            #tb_writer.add_scalar("eval_{}".format(key), value, global_step)
+                    #tb_writer.add_scalar("lr", scheduler.get_lr()[0], global_step)
+                    #tb_writer.add_scalar("loss", (tr_loss - logging_loss) / args.logging_steps, global_step)
                     logging_loss = tr_loss
 
                 if args.local_rank in [-1, 0] and args.save_steps > 0 and global_step % args.save_steps == 0:
@@ -316,8 +316,8 @@ def train(args, model, tokenizer):
             args.lambda_1 = args.lambda_1 - 1 / (epoch_num + 1)
             args.lambda_2 = args.lambda_2 + 1 / (epoch_num + 1)
 
-    if args.local_rank in [-1, 0]:
-        tb_writer.close()
+    #if args.local_rank in [-1, 0]:
+        #tb_writer.close()
 
     return global_step, tr_loss / global_step
 
@@ -716,12 +716,14 @@ def load_and_cache_examples(args, tokenizer, model=None):
 
     # Convert to Tensors and build dataset
     all_mention_token_ids = torch.tensor([f.mention_token_ids for f in features], dtype=torch.long)
+    
     all_mention_token_masks = torch.tensor([f.mention_token_masks for f in features], dtype=torch.long)
     all_candidate_token_ids_1 = torch.tensor([f.candidate_token_ids_1 if f.candidate_token_ids_1 is not None else [0] for f in features], dtype=torch.long)
     all_candidate_token_masks_1 = torch.tensor([f.candidate_token_masks_1 if f.candidate_token_masks_1 is not None else [0] for f in features], dtype=torch.long)
     all_candidate_token_ids_2 = torch.tensor([f.candidate_token_ids_2 if f.candidate_token_ids_2 is not None else [0] for f in features], dtype=torch.long)
     all_candidate_token_masks_2 = torch.tensor([f.candidate_token_masks_2 if f.candidate_token_masks_2 is not None else [0] for f in features], dtype=torch.long)
     all_labels = torch.tensor([f.label_ids for f in features], dtype=torch.long)
+    #print([len(f.mention_end_indices) for f in features])
     all_mention_start_indices = torch.tensor([f.mention_start_indices for f in features], dtype=torch.long)
     all_mention_end_indices = torch.tensor([f.mention_end_indices for f in features], dtype=torch.long)
     all_num_mentions = torch.tensor([f.num_mentions for f in features], dtype=torch.long)
