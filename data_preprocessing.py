@@ -9,19 +9,25 @@ import re
 #     mentions_candidates_tfidf = json.load(f)
 
 
-def preprocess_data(data_dir):
-    tokenizer = BertTokenizer.from_pretrained(pretrained_model_name_or_path='./biobert_v1.1_pubmed',
+def preprocess_data(data_dir,dbutils=None):
+    tokenizer = BertTokenizer.from_pretrained(pretrained_model_name_or_path='monologg/biobert_v1.1_pubmed',
                                               do_lower_case=False, cache_dir=None)
     print(len(tokenizer))
 
     regex = re.compile('^\d+\|[a|t]\|')
 
     raw_data_dir = os.path.join(data_dir, "raw_data")
-    save_dir = os.path.join(data_dir, "processed_data")
+    save_dir = os.path.join(data_dir,"processed_data")
     if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
+        if dbutils == None:
+          os.makedirs(save_dir)
+        else:
+          dbfs_save_dir = "/dbfs/" + save_dir
+          dbutils.fs.mkdirs(save_dir)
+      
     print(raw_data_dir)
     print(save_dir)
+    print(dbfs_save_dir)
     input_files = os.listdir(raw_data_dir)
     print(input_files)
     for file_name in input_files:
@@ -180,18 +186,26 @@ def preprocess_data(data_dir):
         else:
             split = 'dev'
 
-        if not os.path.exists(os.path.join(save_dir, split, "documents")):
-            os.makedirs(os.path.join(save_dir, split, "documents"))
-        with open(os.path.join(save_dir, split, "documents/documents.json"), 'w+') as f:
+        if not os.path.exists(os.path.join(dbfs_save_dir, split, "documents")):
+            if dbutils == None:
+              os.makedirs(os.path.join(save_dir, split, "documents"))
+            else:
+              dbutils.fs.mkdirs(os.path.join(save_dir, split, "documents"))
+              
+ 
+        with open(os.path.join(dbfs_save_dir, split, "documents/documents.json"), 'w+') as f:
             for document_id in documents:
                 dict_to_write = {"document_id": document_id, "text": documents[document_id]}
                 dict_to_write = json.dumps(dict_to_write)
                 f.write(dict_to_write + '\n')
         f.close()
 
-        if not os.path.exists(os.path.join(save_dir, split, "mentions")):
+        if not os.path.exists(os.path.join(dbfs_save_dir, split, "mentions")):
+          if dbutils == None:
             os.makedirs(os.path.join(save_dir, split, "mentions"))
-        with open(os.path.join(save_dir, split, "mentions/mentions.json"), 'w+') as f:
+          else:
+            dbutils.fs.mkdirs(os.path.join(save_dir, split, "mentions"))
+        with open(os.path.join(dbfs_save_dir, split, "mentions/mentions.json"), 'w+') as f:
             for document_id in mentions:
                 dict_to_write = json.dumps(mentions[document_id])
                 f.write(dict_to_write + '\n')
