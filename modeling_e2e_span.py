@@ -27,6 +27,7 @@ class DualEncoderBert(BertPreTrainedModel):
         self.loss_fn_linker = nn.CrossEntropyLoss(ignore_index=-1)
         self.loss_fn_ner = nn.BCEWithLogitsLoss()
         self.BIGINT = 1e31
+        self.BIGFLOAT = float(self.BIGINT)
 
     def init_modules(self):
         for module in self.bound_classifier.modules():
@@ -63,11 +64,11 @@ class DualEncoderBert(BertPreTrainedModel):
             start_scores = start_scores.squeeze(-1)
             end_scores = end_scores.squeeze(-1)
             mention_scores = mention_scores.squeeze(-1)
+            mask = torch.where(mention_token_masks==0,-self.BIGFLOAT,1.0).to(mention_token_masks.device)
             # Exclude The masked tokens from start or end mentions
-            start_scores[torch.where(mention_token_masks == 0)] = -self.BIGINT
-            end_scores[torch.where(mention_token_masks == 0)] = -self.BIGINT
-            mention_scores[torch.where(mention_token_masks == 0)] = -self.BIGINT
-
+            masked_start_scores = start_scores*mask
+            masked_end_scores =end_scores*mask
+            masked_mention_scores = mention_scores*mask
             cumulative_mention_scores = torch.zeros(mention_token_masks.size()).to(mention_token_masks.device)
             cumulative_mention_scores[torch.where(mention_token_masks == 0)] = -self.BIGINT
             cumulative_mention_scores[:, 0] = mention_scores[:, 0]

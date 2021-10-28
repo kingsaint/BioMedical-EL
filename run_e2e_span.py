@@ -41,7 +41,7 @@ from configuration_bert import BertConfig
 from modeling_e2e_span import DualEncoderBert, PreDualEncoder
 
 
-from torch.utils.tensorboard import SummaryWriter
+#from torch.utils.tensorboard import SummaryWriter
 
 logger = logging.getLogger(__name__)
 
@@ -318,7 +318,7 @@ def train(args, model, tokenizer):
 
     #if args.local_rank in [-1, 0]:
         #tb_writer.close()
-
+    
     return global_step, tr_loss / global_step
 
 
