@@ -13,7 +13,7 @@ def get_examples(data_dir, mode):
     if 'NCBI' in data_dir:
         entity_path = './data/NCBI_Disease/raw_data/entities.txt'
     elif 'BC5CDR' in data_dir:
-        entity_path = './data/BC5CDR/raw_data/entities.txt'
+        entity_path = '../data/BC5CDR/raw_data/entities.txt'
     elif 'st21pv' in data_dir:
         entity_path = './data/MM_st21pv_CUI/raw_data/entities.txt'
     elif 'aida' in data_dir:
@@ -478,7 +478,7 @@ def convert_examples_to_features(
                 candidates.append(m_candidates)
 
         # Number of mentions in the documents
-        num_mentions = len(candidates)
+        num_mentions = len(mentions[document_id])
 
         if args.use_all_candidates:
             # If all candidates are considered during inference,
@@ -580,17 +580,21 @@ def convert_examples_to_features(
         else:
             mention_start_indices = mention_start_markers[:args.num_max_mentions]
             mention_end_indices = mention_end_markers[:args.num_max_mentions]
-        # if ex_index < 3:
-        #     logger.info("*** Example ***")
-        #     logger.info("mention_token_ids: %s", " ".join([str(x) for x in mention_tokens]))
-        #     logger.info("mention_token_masks: %s", " ".join([str(x) for x in mention_tokens_mask]))
-        #     if candidate_token_ids_1 is not None:
-        #         logger.info("candidate_token_ids_1: %s", " ".join([str(x) for x in candidate_token_ids_1]))
-        #         logger.info("candidate_token_masks_1: %s", " ".join([str(x) for x in candidate_token_masks_1]))
-        #     if candidate_token_ids_2 is not None:
-        #         logger.info("candidate_token_ids_2: %s", " ".join([str(x) for x in candidate_token_ids_2]))
-        #         logger.info("candidate_token_masks_2: %s", " ".join([str(x) for x in candidate_token_masks_2]))
-        #     logger.info("label_ids: %s", " ".join([str(x) for x in label_id]))
+            
+        assert len(mention_start_indices) == args.num_max_mentions, f"{num_mentions},{mention_start_indices},{args.num_max_mentions}"
+        assert len(mention_end_indices) == args.num_max_mentions, f"{mention_end_indices}, {args.num_max_mentions}"
+        
+       #if ex_index < 3:
+           #logger.info("*** Example ***")
+           #logger.info("mention_token_ids: %s", " ".join([str(x) for x in mention_tokens]))
+           #logger.info("mention_token_masks: %s", " ".join([str(x) for x in mention_tokens_mask]))
+           #if candidate_token_ids_1 is not None:
+               #logger.info("candidate_token_ids_1: %s", " ".join([str(x) for x in candidate_token_ids_1]))
+               #logger.info("candidate_token_masks_1: %s", " ".join([str(x) for x in candidate_token_masks_1]))
+           #if candidate_token_ids_2 is not None:
+                #logger.info("candidate_token_ids_2: %s", " ".join([str(x) for x in candidate_token_ids_2]))
+                #logger.info("candidate_token_masks_2: %s", " ".join([str(x) for x in candidate_token_masks_2]))
+            #logger.info("label_ids: %s", " ".join([str(x) for x in label_id]))
 
         features.append(
             InputFeatures(mention_token_ids=doc_tokens,

@@ -26,7 +26,7 @@ from botocore.exceptions import ClientError
 from filelock import FileLock
 from tqdm.auto import tqdm
 
-# from . import __version__
+from transformers import __version__
 
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -85,7 +85,7 @@ except (AttributeError, ImportError):
 PYTORCH_TRANSFORMERS_CACHE = PYTORCH_PRETRAINED_BERT_CACHE  # Kept for backward compatibility
 TRANSFORMERS_CACHE = PYTORCH_PRETRAINED_BERT_CACHE  # Kept for backward compatibility
 
-WEIGHTS_NAME = "pytorch_model-1000000.bin"
+WEIGHTS_NAME = "pytorch_model.bin"
 TF2_WEIGHTS_NAME = "tf_model.h5"
 TF_WEIGHTS_NAME = "model.ckpt"
 CONFIG_NAME = "config.json"
