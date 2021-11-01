@@ -5,6 +5,10 @@ import copy
 from modeling_bert import BertPreTrainedModel
 from modeling_bert import BertModel, BertForPreTraining
 import pdb
+from torch.utils.tensorboard import SummaryWriter
+
+# default `log_dir` is "runs" - we'll be more specific here
+writer = SummaryWriter('/dbfs/Workspace/Repos/cflowers@trend.community/BioMedical-EL/tensorboard_log')
 
 
 class PreDualEncoder(BertPreTrainedModel):
@@ -158,7 +162,7 @@ class DualEncoderBert(BertPreTrainedModel):
                 pooled_candidate_outputs = candidate_outputs[1]
 
                 candidate_embeddings = pooled_candidate_outputs.reshape(-1, args.num_candidates, self.hidden_size) #BN X C X H
-
+                print(f"mention_embeddings:{mention_embeddings.size()},candidate_embeddings:{candidate_embeddings.size()}")
                 linker_logits = torch.bmm(mention_embeddings, candidate_embeddings.transpose(1, 2))
                 linker_logits = linker_logits.squeeze(1)  # BN X C
 

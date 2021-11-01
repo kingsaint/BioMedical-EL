@@ -327,7 +327,8 @@ def evaluate(args, model, tokenizer, prefix=""):
 
     eval_dataset, (all_entities, all_entity_token_ids, all_entity_token_masks), \
     (all_document_ids, all_label_candidate_ids) = load_and_cache_examples(args, tokenizer)
-
+    
+    logger.info("Evaluation Dataset Created")
     if not os.path.exists(eval_output_dir) and args.local_rank in [-1, 0]:
          os.makedirs(eval_output_dir)
 
@@ -342,8 +343,10 @@ def evaluate(args, model, tokenizer, prefix=""):
 
     if args.use_all_candidates:
         all_candidate_embeddings = []
+        logger.info("INFO: Collecting all candidate embeddings.")
         with torch.no_grad():
             for i, _ in enumerate(all_entity_token_ids):
+                logger.info(str(i))
                 entity_tokens = all_entity_token_ids[i]
                 entity_tokens_masks = all_entity_token_masks[i]
                 candidate_token_ids = torch.LongTensor([entity_tokens]).to(args.device)
@@ -518,14 +521,17 @@ def evaluate(args, model, tokenizer, prefix=""):
                b_overlapping_start_indices, b_overlapping_end_indices, b_which_gold_spans
 
     # Files to write
-    gold_file = open('gold.csv', 'w+')
-    pred_file = open('pred.csv', 'w+')
+    gold_path = os.path.join(args.data_dir,'gold.csv')
+    pred_path = os.path.join(args.data_dir,'pred.csv')
+    gold_file = open(gold_path, 'w+')
+    pred_file = open(pred_path, 'w+')
 
     num_mention_processed = 0
     for batch in tqdm(eval_dataloader, desc="Evaluating"):
         model.eval()
         batch = tuple(t.to(args.device) for t in batch)
-
+        #print(batch[0].size())
+        #print(batch[1].size())
         with torch.no_grad():
             doc_input = {"args": args,
                          "mention_token_ids": batch[0],
@@ -534,15 +540,13 @@ def evaluate(args, model, tokenizer, prefix=""):
                          }
             pred_mention_start_indices, pred_mention_end_indices, pred_mention_span_scores, last_hidden_states = model.forward(**doc_input)
             pred_mention_span_probs = torch.sigmoid(pred_mention_span_scores)
-
             spans_after_prunning = torch.where(pred_mention_span_probs >= args.gamma)
-            if spans_after_prunning[0].size(0) <= 0:
+            if spans_after_prunning[0].size(0) >= 0:
                 _, spans_after_prunning = torch.topk(pred_mention_span_probs, 8)
-
-            # print(spans_after_prunning)
+            logger.info(f"INFO: span_after_prunning.size:{spans_after_prunning.size()}")
             mention_start_indices = pred_mention_start_indices[spans_after_prunning]
             mention_end_indices = pred_mention_end_indices[spans_after_prunning]
-
+            
             if args.use_all_candidates:
                 mention_inputs = {"args": args,
                                   "last_hidden_states": last_hidden_states,
@@ -553,7 +557,7 @@ def evaluate(args, model, tokenizer, prefix=""):
                                   "all_candidate_embeddings": all_candidate_embeddings,
                                   "mode": 'ned',
                                   }
-            else:
+            else:#does not work, --use_all_candidates must be set to true.
                 mention_inputs = {"args": args,
                                   "last_hidden_states": last_hidden_states,
                                   "mention_start_indices": mention_start_indices,
@@ -685,6 +689,7 @@ def load_and_cache_examples(args, tokenizer, model=None):
         all_entity_token_masks = np.load(os.path.join(args.data_dir, 'all_entity_token_masks.npy'))
         all_document_ids = np.load(os.path.join(args.data_dir, 'all_document_ids.npy'))
         all_label_candidate_ids = np.load(os.path.join(args.data_dir, 'all_label_candidate_ids.npy'))
+        logger.info("Finished loading features from cached file %s", cached_features_file)
     else:
         logger.info("Creating features from dataset file at %s", args.data_dir)
         examples, docs, entities = get_examples(args.data_dir, mode)
@@ -1016,7 +1021,7 @@ def main():
     if args.do_train:
         if args.resume_path is not None:
             # Load a trained model and vocabulary from a saved checkpoint to resume training
-            model.load_state_dict(torch.load(os.path.join(args.resume_path, 'pytorch_model-1000000.bin')))
+            model.load_state_dict(torch.load(os.path.join(args.resume_path, 'pytorch_model.bin')))
             tokenizer = tokenizer_class.from_pretrained(args.resume_path)
             model.to(args.device)
             logger.info("INFO: Checkpoint loaded successfully. Training will resume from %s", args.resume_path)
@@ -1042,7 +1047,7 @@ def main():
         torch.save(args, os.path.join(args.output_dir, "training_args.bin"))
 
         # Load a trained model and vocabulary that you have fine-tuned
-        model.load_state_dict(torch.load(os.path.join(args.output_dir, 'pytorch_model-1000000.bin')))
+        model.load_state_dict(torch.load(os.path.join(args.output_dir, 'pytorch_model.bin')))
         tokenizer = tokenizer_class.from_pretrained(args.output_dir)
         model.to(args.device)
 
@@ -1060,7 +1065,7 @@ def main():
         for checkpoint in checkpoints:
             global_step = checkpoint.split("-")[-1] if len(checkpoints) > 1 else ""
             prefix = checkpoint.split("/")[-1] if checkpoint.find("checkpoint") != -1 else ""
-            model.load_state_dict(torch.load(os.path.join(checkpoint, 'pytorch_model-1000000.bin')))
+            model.load_state_dict(torch.load(os.path.join(checkpoint, 'pytorch_model.bin')))
             model.to(args.device)
             result = evaluate(args, model, tokenizer, prefix=prefix)
             result = dict((k + "_{}".format(global_step), v) for k, v in result.items())
