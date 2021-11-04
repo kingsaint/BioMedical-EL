@@ -41,7 +41,7 @@ from configuration_bert import BertConfig
 from modeling_e2e_span import DualEncoderBert, PreDualEncoder
 
 
-#from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,8 @@ def set_seed(args):
 def train(args, model, tokenizer):
     """ Train the model """
     if args.local_rank in [-1, 0]:
-        #tb_writer = SummaryWriter()
+        experiment_log_dir = "/dbfs/Workspace/Repos/cflowers@trend.community/BioMedical-EL/tensorboard_log2"
+        tb_writer = SummaryWriter(experiment_log_dir)
 
         # Initial train dataloader
         if args.use_random_candidates:
@@ -242,9 +243,9 @@ def train(args, model, tokenizer):
                     scaled_loss.backward()
             else:
                 loss.backward()
-
+        
             tr_loss += loss.item()
-
+          
             if (step + 1) % args.gradient_accumulation_steps == 0:
                 if args.fp16:
                     torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.max_grad_norm)
@@ -262,10 +263,12 @@ def train(args, model, tokenizer):
                         args.local_rank == -1 and args.evaluate_during_training
                     ):  # Only evaluate when single GPU otherwise metrics may not average well
                         results = evaluate(args, model, tokenizer)
-                        #for key, value in results.items():
-                            #tb_writer.add_scalar("eval_{}".format(key), value, global_step)
-                    #tb_writer.add_scalar("lr", scheduler.get_lr()[0], global_step)
-                    #tb_writer.add_scalar("loss", (tr_loss - logging_loss) / args.logging_steps, global_step)
+                        for key, value in results.items():
+                          tb_writer.add_scalar("eval_{}".format(key), value, global_step)
+                          
+                    tb_writer.add_scalar("lr", scheduler.get_lr()[0], global_step)
+                    tb_writer.add_scalar("loss", (tr_loss - logging_loss) / args.logging_steps, global_step)
+                    logger.info(f"loss: {(tr_loss - logging_loss) / args.logging_steps}")
                     logging_loss = tr_loss
 
                 if args.local_rank in [-1, 0] and args.save_steps > 0 and global_step % args.save_steps == 0:
@@ -316,8 +319,8 @@ def train(args, model, tokenizer):
             args.lambda_1 = args.lambda_1 - 1 / (epoch_num + 1)
             args.lambda_2 = args.lambda_2 + 1 / (epoch_num + 1)
 
-    #if args.local_rank in [-1, 0]:
-        #tb_writer.close()
+    if args.local_rank in [-1, 0]:
+        tb_writer.close()
     
     return global_step, tr_loss / global_step
 
@@ -363,6 +366,7 @@ def evaluate(args, model, tokenizer, prefix=""):
                     )
                 candidate_embedding = candidate_outputs[1]
                 all_candidate_embeddings.append(candidate_embedding)
+                #logger.info(str(candidate_embedding))
         all_candidate_embeddings = torch.cat(all_candidate_embeddings, dim=0)
         logger.info("INFO: Collected all candidate embeddings.")
         print("Tensor size = ", all_candidate_embeddings.size())
@@ -541,9 +545,9 @@ def evaluate(args, model, tokenizer, prefix=""):
             pred_mention_start_indices, pred_mention_end_indices, pred_mention_span_scores, last_hidden_states = model.forward(**doc_input)
             pred_mention_span_probs = torch.sigmoid(pred_mention_span_scores)
             spans_after_prunning = torch.where(pred_mention_span_probs >= args.gamma)
-            if spans_after_prunning[0].size(0) >= 0:
+            if spans_after_prunning[0].size(0) <= 0:
                 _, spans_after_prunning = torch.topk(pred_mention_span_probs, 8)
-            logger.info(f"INFO: span_after_prunning.size:{spans_after_prunning.size()}")
+
             mention_start_indices = pred_mention_start_indices[spans_after_prunning]
             mention_end_indices = pred_mention_end_indices[spans_after_prunning]
             
@@ -560,18 +564,21 @@ def evaluate(args, model, tokenizer, prefix=""):
             else:#does not work, --use_all_candidates must be set to true.
                 mention_inputs = {"args": args,
                                   "last_hidden_states": last_hidden_states,
-                                  "mention_start_indices": mention_start_indices,
-                                  "mention_end_indices": mention_start_indices,
+                                  "mention_start_indices": mention_start_indices.unsqueeze(0),
+                                  "mention_end_indices": mention_start_indices.unsqueeze(0),
                                   "candidate_token_ids_1": batch[2],
                                   "candidate_token_masks_1": batch[3],
                                   "mode": 'ned',
                                   }
 
             _, logits = model(**mention_inputs)
+            logger.info(str(logits))
             preds = logits.detach().cpu().numpy()
             # out_label_ids = batch[6]
             # out_label_ids = out_label_ids.reshape(-1).detach().cpu().numpy()
+            
             sorted_preds = np.flip(np.argsort(preds), axis=1)
+            logger.info(str(sorted_preds))
             predicted_entities = []
             for i, sorted_pred in enumerate(sorted_preds):
                 predicted_entity_idx = sorted_preds[i][0]
@@ -618,8 +625,8 @@ def evaluate(args, model, tokenizer, prefix=""):
 
             num_mention_processed += num_mentions
 
-            # for b_idx in range(sorted_preds.size(0)):
-    #         for i, sorted_pred in enumerate(sorted_preds):
+    #      for b_idx in range(sorted_preds.size(0)):
+    #      for i, sorted_pred in enumerate(sorted_preds):
     #             if out_label_ids[i] != -1:
     #                 if out_label_ids[i] != -100:
     #                     rank = np.where(sorted_pred == out_label_ids[i])[0][0] + 1

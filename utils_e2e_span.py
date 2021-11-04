@@ -5,7 +5,6 @@ import math
 import pdb
 import logging
 logger = logging.getLogger(__name__)
-import faiss
 import torch
 
 
@@ -560,6 +559,7 @@ def convert_examples_to_features(
                         c_idx += 1
 
         # Target candidate
+        #logger.info(str(candidates))
         label_ids = [-1] * args.num_max_mentions
         for m_idx, m_candidates in enumerate(candidates):
             if m_idx >= args.num_max_mentions:
