@@ -405,25 +405,7 @@ def main(args=None):
     # Training
     if args.do_train:
         hr = HorovodRunner(np=args.n_gpu,driver_log_verbosity='all') 
-        #hr.run(train_hvd, args=args)
-        hr.run(test_hvd,args=args)
-def test_hvd(args):
-  hvd.init()
-  device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-  logging.basicConfig(
-        format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
-        datefmt="%m/%d/%Y %H:%M:%S",
-        level=logging.INFO if hvd.rank() in [-1, 0] else logging.WARN,
-    )
-  logger.warning(
-      "Process rank: %s, device: %s, n_gpu: %s, distributed training: %s, 16-bits training: %s",
-      hvd.rank(),
-      device,
-      args.n_gpu,
-      bool(hvd.rank() != -1),
-      args.fp16,
-  )
-  logger.info("Training/evaluation parameters %s", args)
+        hr.run(train_hvd, args=args)
         
 def save_checkpoint(args,tokenizer,tokenizer_class,model,device):
   # Saving best-practices: if you use defaults names for the model, you can reload it using from_pretrained()
