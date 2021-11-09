@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 from torch.nn import CrossEntropyLoss, MSELoss
 import copy
-from modeling_bert import BertPreTrainedModel
-from modeling_bert import BertModel, BertForPreTraining
+from .modeling_bert import BertPreTrainedModel
+from .modeling_bert import BertModel, BertForPreTraining
 import pdb
 from torch.utils.tensorboard import SummaryWriter
 import logging

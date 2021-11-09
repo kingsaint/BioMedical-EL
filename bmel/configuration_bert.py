@@ -18,7 +18,7 @@
 
 import logging
 
-from configuration_utils import PretrainedConfig
+from .configuration_utils import PretrainedConfig
 
 
 logger = logging.getLogger(__name__)

@@ -24,8 +24,8 @@ from torch import nn
 from torch.nn import CrossEntropyLoss
 from torch.nn import functional as F
 
-from configuration_utils import PretrainedConfig
-from file_utils import (
+from .configuration_utils import PretrainedConfig
+from .file_utils import (
     DUMMY_INPUTS,
     TF2_WEIGHTS_NAME,
     TF_WEIGHTS_NAME,

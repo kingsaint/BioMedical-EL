@@ -33,12 +33,12 @@ from transformers import (
     get_linear_schedule_with_warmup,
 )
 
-from utils_e2e_span import get_examples, convert_examples_to_features
+from  .utils_e2e_span import get_examples, convert_examples_to_features
 
-from modeling_bert import BertModel
-from tokenization_bert import BertTokenizer
-from configuration_bert import BertConfig
-from modeling_e2e_span import DualEncoderBert, PreDualEncoder
+from .modeling_bert import BertModel
+from .tokenization_bert import BertTokenizer
+from .configuration_bert import BertConfig
+from .modeling_e2e_span import DualEncoderBert, PreDualEncoder
 
 
 from torch.utils.tensorboard import SummaryWriter
