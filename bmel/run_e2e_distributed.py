@@ -94,8 +94,8 @@ def train_hvd(args):
     logger.info("Training/evaluation parameters %s", args)
     # Load pretrained model and tokenizer
     
-#  if hvd.rank()!=0:
-#        comm.barrier()  # Make sure only the first process in distributed training will download model & vocab
+    if hvd.rank()!=0:
+        comm.barrier()  # Make sure only the first process in distributed training will download model & vocab
     
     args.model_type = args.model_type.lower()
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
@@ -123,8 +123,8 @@ def train_hvd(args):
 
     model = DualEncoderBert(config, pretrained_bert)
 
-# if hvd.rank()!=0:
-# comm.barrier()  # Make sure only the first process in distributed training will download model & vocab
+    if hvd.rank()!=0:
+        comm.barrier()  # Make sure only the first process in distributed training will download model & vocab
         
     if device.type == 'cuda':
       # Pin GPU to local rank
