@@ -635,7 +635,7 @@ def get_args(dict_args = None):
           list_args.append(value)
       args = parser.parse_args(list_args)
     else:
-      args = parser.parse_args
+      args = parser.parse_args()
     return args
 
 if __name__ == "__main__":
