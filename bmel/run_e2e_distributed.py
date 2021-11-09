@@ -123,7 +123,7 @@ def train_hvd(args):
 
     model = DualEncoderBert(config, pretrained_bert)
 
-    if hvd.rank()!=0:
+    if hvd.rank()==0:
         comm.barrier()  # Make sure only the first process in distributed training will download model & vocab
         
     if device.type == 'cuda':
