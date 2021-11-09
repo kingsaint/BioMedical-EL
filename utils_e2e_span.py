@@ -9,10 +9,11 @@ import torch
 
 
 def get_examples(data_dir, mode):
+    logger.info("***getting data***")
     if 'NCBI' in data_dir:
         entity_path = './data/NCBI_Disease/raw_data/entities.txt'
     elif 'BC5CDR' in data_dir:
-        entity_path = '../data/BC5CDR/raw_data/entities.txt'
+        entity_path = '/dbfs/Workspace/Repos/cflowers@trend.community/BioMedical-EL/data/BC5CDR/raw_data/entities.txt'
     elif 'st21pv' in data_dir:
         entity_path = './data/MM_st21pv_CUI/raw_data/entities.txt'
     elif 'aida' in data_dir:

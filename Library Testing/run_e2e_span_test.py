@@ -26,7 +26,7 @@ pip install
 # COMMAND ----------
 
 # MAGIC %sh
-# MAGIC python ../run_e2e_span.py --model_type bert --data_dir /dbfs/Workspace/Repos/cflowers@trend.community/BioMedical-EL/data/BC5CDR/processed_data --model_name_or_path /dbfs/Workspace/Repos/cflowers@trend.community/BioMedical-EL/model --output_dir /dbfs/Workspace/Repos/cflowers@trend.community/BioMedical-EL/output_dir --overwrite_output_dir --do_train --overwrite_cache --num_candidates 8  --num_train_epochs 3 --use_random_candidates 
+# MAGIC python ../run_e2e_span.py --model_type bert --data_dir /dbfs/Workspace/Repos/cflowers@trend.community/BioMedical-EL/data/BC5CDR/processed_data --model_name_or_path /dbfs/Workspace/Repos/cflowers@trend.community/BioMedical-EL/model --output_dir /dbfs/Workspace/Repos/cflowers@trend.community/BioMedical-EL/output_dir --overwrite_output_dir --do_train --overwrite_cache --num_candidates 8  --num_train_epochs 3 --use_random_candidates  --per_gpu_train_batch_size 1 --n_gpu 4
 
 # COMMAND ----------
 
