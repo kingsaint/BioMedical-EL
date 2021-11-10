@@ -139,7 +139,7 @@ def train_hvd(args):
     else:
         train_dataset, _, _ = load_and_cache_examples(args, tokenizer)
 
-    args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
+    args.train_batch_size = args.per_gpu_train_batch_size #* max(1, args.n_gpu)
     train_sampler = DistributedSampler(train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
     train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
     
@@ -176,7 +176,6 @@ def train_hvd(args):
         "  Total train batch size (w. parallel, distributed & accumulation) = %d",
         args.train_batch_size
         * args.gradient_accumulation_steps
-        * hvd.size(),
     )
     logger.info("  Gradient Accumulation steps = %d", args.gradient_accumulation_steps)
     logger.info("  Total optimization steps = %d", t_total)
