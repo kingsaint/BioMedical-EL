@@ -290,12 +290,12 @@ def train_hvd(args):
           # New data loader at every epoch for random sampler if we use random negative samples
           train_dataset, _, _= load_and_cache_examples(args, tokenizer)
           train_sampler = DistributedSampler(train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
-          train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
+          train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.per_gpu_train_batch_size)
       elif args.use_hard_negatives or args.use_hard_and_random_negatives:
           # New data loader at every epoch for hard negative sampler if we use hard negative mining
           train_dataset, _, _= load_and_cache_examples(args, tokenizer, model)
           train_sampler = DistributedSampler(train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
-          train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
+          train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.per_gpu_train_batch_size)
 
           # Anneal the lamba_1 and lambda_2 weights
           args.lambda_1 = args.lambda_1 - 1 / (epoch_num + 1)
