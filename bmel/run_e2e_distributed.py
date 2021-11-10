@@ -76,6 +76,7 @@ def set_seed(args):
 def train_hvd(args):
     """ Train the model """
     hvd.init() 
+    os.environ['CUDA_VISIBLE_DEVICES'] = str(hvd.local_rank())
     comm == get_comm_magic()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     logging.basicConfig(
@@ -128,7 +129,8 @@ def train_hvd(args):
         
     if device.type == 'cuda':
       # Pin GPU to local rank
-      torch.cuda.set_device(hvd.local_rank())
+      torch.cuda.set_device(0)
+      #torch.cuda.set_device(hvd.local_rank())
       
     model.to(device)  
     
@@ -139,9 +141,9 @@ def train_hvd(args):
     else:
         train_dataset, _, _ = load_and_cache_examples(args, tokenizer)
 
-    args.train_batch_size = args.per_gpu_train_batch_size #* max(1, args.n_gpu)
+    args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
     train_sampler = DistributedSampler(train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
-    train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
+    train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.per_gpu_train_batch_size)
     
     logger.info("***** Running training *****")
     if args.max_steps > 0:
