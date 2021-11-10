@@ -172,7 +172,7 @@ class DualEncoderBert(BertPreTrainedModel):
                     labels = labels.reshape(-1)  # BN
            
                     linking_loss = self.loss_fn_linker(linker_logits, labels)
-                    logger.info(str(linking_loss))
+                    logger.info(f"loss: {str(linking_loss.item())}")
                     # Normalize the loss
                     num_mentions = torch.where(labels >= 0)[0].size(0)
                     linking_loss = linking_loss / num_mentions
@@ -215,7 +215,7 @@ class DualEncoderBert(BertPreTrainedModel):
 
                 candidate_embeddings = pooled_candidate_outputs.reshape(-1, 2 * args.num_candidates,
                                                                         self.hidden_size)  # BN X 2*C X H
-                logger.info(str(all_candidate_embeddings.size()))
+                #logger.info(str(all_candidate_embeddings.size()))
                 linker_logits = torch.bmm(mention_embeddings, candidate_embeddings.transpose(1, 2))
                 linker_logits = linker_logits.squeeze(1)  # BN X C
 
@@ -236,7 +236,7 @@ class DualEncoderBert(BertPreTrainedModel):
             if all_candidate_embeddings is not None:
                 b_size = mention_embeddings.size(0)
                 all_candidate_embeddings = all_candidate_embeddings[0].unsqueeze(0).expand(b_size, -1, -1)  # B X C_all X H
-                logger.info(str(all_candidate_embeddings.size()))
+                #logger.info(str(all_candidate_embeddings.size()))
                 linker_logits = torch.bmm(mention_embeddings, all_candidate_embeddings.transpose(1, 2))
                 linker_logits = linker_logits.squeeze(1)  # BN X C
                 return None, linker_logits
