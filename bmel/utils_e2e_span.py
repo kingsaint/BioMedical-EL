@@ -656,7 +656,7 @@ def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,device,optimi
     # Saving best-practices: if you use defaults names for the model, you can reload it using from_pretrained()
     # Create output directory if needed
     training_run_dir = os.path.join(args.output_dir,"training_run_{}GPUs_{}epochs".format(args.n_gpu,epoch_num))
-    final = args.num_train_epochs == epoch_num:
+    final = args.num_train_epochs == epoch_num
     if final:
         output_dir = os.path.join(training_run_dir, "checkpoint-{}-FINAL".format(epoch_num))
     else:
@@ -683,9 +683,9 @@ def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,device,optimi
         model.load_state_dict(torch.load(os.path.join(output_dir, 'pytorch_model.bin')))
         tokenizer = tokenizer_class.from_pretrained(output_dir)
         model.to(device)
-        
+    mlflow.log_artifacts(training_run_dir)    
     logger.info("Saved model checkpoint to %s", output_dir)
-
+    
 def set_seed(args):
     random.seed(args.seed)
     np.random.seed(args.seed)
