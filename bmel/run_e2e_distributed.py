@@ -412,7 +412,7 @@ def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,device,optimi
             
 
     
-def main(args=None,db_token):
+def main(db_token,args=None):
     args = get_args(args)
     
     if (
@@ -436,7 +436,7 @@ def main(args=None,db_token):
         # Training
         if args.do_train:
             args.active_run_id = mlflow.active_run().info.run_id
-            args.db_token = token
+            args.db_token = db_token
             hr = HorovodRunner(np=args.n_gpu,driver_log_verbosity='all') 
             hr.run(train_hvd, args=args)
         
