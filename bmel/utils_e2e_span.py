@@ -747,7 +747,7 @@ def load_and_cache_examples(args, tokenizer, model=None):
     # Convert to Tensors and build dataset
     all_mention_token_ids = torch.tensor([f.mention_token_ids for f in features], dtype=torch.long)[:10]
     #reduced dataset size to 10 for debugging
-    all_mention_token_masks = torch.tensor([f.mention_token_masks for f in features], dtype=torch.long)
+    all_mention_token_masks = torch.tensor([f.mention_token_masks for f in features], dtype=torch.long)[:10]
     all_candidate_token_ids_1 = torch.tensor([f.candidate_token_ids_1 if f.candidate_token_ids_1 is not None else [0] for f in features], dtype=torch.long)[:10]
     all_candidate_token_masks_1 = torch.tensor([f.candidate_token_masks_1 if f.candidate_token_masks_1 is not None else [0] for f in features], dtype=torch.long)[:10]
     all_candidate_token_ids_2 = torch.tensor([f.candidate_token_ids_2 if f.candidate_token_ids_2 is not None else [0] for f in features], dtype=torch.long)[:10]
