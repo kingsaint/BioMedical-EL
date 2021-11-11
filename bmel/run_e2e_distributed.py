@@ -408,9 +408,6 @@ def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,device,optimi
         model.to(device)
         
     logger.info("Saved model checkpoint to %s", output_dir)
-
-
-                # Save model checkpoint
             
 
     
@@ -623,7 +620,7 @@ def get_args(dict_args = None):
     parser.add_argument("--local_rank", type=int, default=-1, help="For distributed training: local_rank")
     parser.add_argument("--server_ip", type=str, default="", help="For distant debugging.")
     parser.add_argument("--server_port", type=str, default="", help="For distant debugging.")
-    parser.add_argument("---mflow_experiment", type=str, default="", help="To log parameters and metrics."))
+    parser.add_argument("---mflow_experiment", type=str, default="", help="To log parameters and metrics.")
     list_args = []
     if dict_args != None:
       for key,value in dict_args.items():
