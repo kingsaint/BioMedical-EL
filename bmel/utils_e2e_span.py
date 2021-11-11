@@ -656,8 +656,7 @@ def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,device,optimi
     # Saving best-practices: if you use defaults names for the model, you can reload it using from_pretrained()
     # Create output directory if needed
     training_run_dir = os.path.join(args.output_dir,"training_run_{}GPUs_{}epochs".format(args.n_gpu,epoch_num))
-    if args.num_train_epochs == epoch_num:
-        final = True
+    final = args.num_train_epochs == epoch_num:
     if final:
         output_dir = os.path.join(training_run_dir, "checkpoint-{}-FINAL".format(epoch_num))
     else:
