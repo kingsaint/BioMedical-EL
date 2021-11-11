@@ -4,9 +4,28 @@ import random
 import math
 import pdb
 import logging
+from mpi4py import MPI
+import numpy as np
 logger = logging.getLogger(__name__)
 import torch
+from .modeling_bert import BertModel
+from .tokenization_bert import BertTokenizer
+from .configuration_bert import BertConfig
 
+ALL_MODELS = sum(
+    (tuple(conf.pretrained_config_archive_map.keys()) for conf in [BertConfig]), ()
+)
+
+MODEL_CLASSES = {
+    "bert": (BertConfig, BertModel, BertTokenizer),
+}
+comm = None
+
+def get_comm_magic():
+    global comm
+    if comm is None:
+      comm = MPI.COMM_WORLD
+    return comm
 
 def get_examples(data_dir, mode):
     logger.info("***getting data***")
@@ -628,15 +647,124 @@ def convert_examples_to_features(
 
     return features, (all_entities, all_entity_token_ids, all_entity_token_masks), (all_document_ids, all_label_candidate_ids)
 
-# data_dir = './data/NCBI_Disease/collective_el_data_2'
-# mode = "test"
-#
-# examples, docs, entities = get_examples(data_dir, mode)
-# print(entities)
-# for doc_id in examples:
-#     print(len(examples[doc_id]))
-#     print(docs[doc_id])
-#
-#     print(">>>>>>>>")
-# print(len(entities))
+def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,device,optimizer,scheduler):
+    # Saving best-practices: if you use defaults names for the model, you can reload it using from_pretrained()
+    # Create output directory if needed
+    training_run_dir = os.path.join(args.output_dir,"training_run_{}GPUs_{}epochs".format(args.gpu,epoch_num))
+    if args.num_train_epochs == epoch_num:
+        final = True
+    if final:
+        output_dir = os.path.join(training_run_dir, "checkpoint-{}-FINAL".format(epoch_num))
+    else:
+        output_dir = os.path.join(training_run_dir, "checkpoint-{}".format(epoch_num))
+
+    logger.info("Saving model checkpoint to %s", output_dir)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    # Save a trained model, configuration and tokenizer using `save_pretrained()`.
+    # They can then be reloaded using `from_pretrained()`
+    model_to_save = (
+        model.module if hasattr(model, "module") else model
+    )  # Take care of distributed/parallel training
+
+    model_to_save.save_pretrained(output_dir)
+    tokenizer.save_pretrained(output_dir)
+    torch.save(args, os.path.join(output_dir, "training_args.bin"))
+    torch.save(optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
+    torch.save(scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
+    logger.info("Saving optimizer and scheduler states to %s", output_dir)
+    
+    # Load a trained model and vocabulary that you have fine-tuned to ensure proper
+    if final:
+        model.load_state_dict(torch.load(os.path.join(output_dir, 'pytorch_model.bin')))
+        tokenizer = tokenizer_class.from_pretrained(output_dir)
+        model.to(device)
+        
+    logger.info("Saved model checkpoint to %s", output_dir)
+
+def set_seed(args):
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    if args.n_gpu > 0:
+        torch.cuda.manual_seed_all(args.seed)
+
+def load_and_cache_examples(args, tokenizer, model=None):
+    if hvd.rank() not in [-1, 0]:
+        comm.barrier()  # Make sure only the first process in distributed training process the dataset, and the others will use the cache
+
+    mode = 'train' if args.do_train else 'test'
+    # Load data features from cache or dataset file
+    cached_features_file = os.path.join(
+        args.data_dir,
+        "cached_{}_{}".format(
+            mode,
+            list(filter(None, args.model_name_or_path.split("/"))).pop()),
+    )
+    if os.path.exists(cached_features_file) and not args.overwrite_cache:
+        logger.info("Loading features from cached file %s", cached_features_file)
+        features = torch.load(cached_features_file)
+        all_entities = np.load(os.path.join(args.data_dir, 'all_entities.npy'))
+        all_entity_token_ids = np.load(os.path.join(args.data_dir, 'all_entity_token_ids.npy'))
+        all_entity_token_masks = np.load(os.path.join(args.data_dir, 'all_entity_token_masks.npy'))
+        all_document_ids = np.load(os.path.join(args.data_dir, 'all_document_ids.npy'))
+        all_label_candidate_ids = np.load(os.path.join(args.data_dir, 'all_label_candidate_ids.npy'))
+        logger.info("Finished loading features from cached file %s", cached_features_file)
+    else:
+        logger.info("Creating features from dataset file at %s", args.data_dir)
+        examples, docs, entities = get_examples(args.data_dir, mode)
+        features, (all_entities, all_entity_token_ids, all_entity_token_masks), (all_document_ids, all_label_candidate_ids) = convert_examples_to_features(
+            examples,
+            docs,
+            entities,
+            args.max_seq_length,
+            tokenizer,
+            args,
+            model,
+        )
+        if hvd.rank() in [-1, 0]:
+            logger.info("Saving features into cached file %s", cached_features_file)
+            torch.save(features, cached_features_file)
+            np.save(os.path.join(args.data_dir, 'all_entities.npy'),
+                        np.array(all_entities))
+            np.save(os.path.join(args.data_dir, 'all_entity_token_ids.npy'),
+                    np.array(all_entity_token_ids))
+            np.save(os.path.join(args.data_dir, 'all_entity_token_masks.npy'),
+                    np.array(all_entity_token_masks))
+            np.save(os.path.join(args.data_dir, 'all_document_ids.npy'),
+                    np.array(all_document_ids))
+            np.save(os.path.join(args.data_dir, 'all_label_candidate_ids.npy'),
+                    np.array(all_label_candidate_ids))
+
+    if hvd.rank() == 0:
+        comm.barrier()  # Make sure only the first process in distributed training process the dataset, and the others will use the cache
+
+    # Convert to Tensors and build dataset
+    all_mention_token_ids = torch.tensor([f.mention_token_ids for f in features], dtype=torch.long)
+    
+    all_mention_token_masks = torch.tensor([f.mention_token_masks for f in features], dtype=torch.long)
+    all_candidate_token_ids_1 = torch.tensor([f.candidate_token_ids_1 if f.candidate_token_ids_1 is not None else [0] for f in features], dtype=torch.long)
+    all_candidate_token_masks_1 = torch.tensor([f.candidate_token_masks_1 if f.candidate_token_masks_1 is not None else [0] for f in features], dtype=torch.long)
+    all_candidate_token_ids_2 = torch.tensor([f.candidate_token_ids_2 if f.candidate_token_ids_2 is not None else [0] for f in features], dtype=torch.long)
+    all_candidate_token_masks_2 = torch.tensor([f.candidate_token_masks_2 if f.candidate_token_masks_2 is not None else [0] for f in features], dtype=torch.long)
+    all_labels = torch.tensor([f.label_ids for f in features], dtype=torch.long)
+    #print([len(f.mention_end_indices) for f in features])
+    all_mention_start_indices = torch.tensor([f.mention_start_indices for f in features], dtype=torch.long)
+    all_mention_end_indices = torch.tensor([f.mention_end_indices for f in features], dtype=torch.long)
+    all_num_mentions = torch.tensor([f.num_mentions for f in features], dtype=torch.long)
+    all_seq_tag_ids = torch.tensor([f.seq_tag_ids for f in features], dtype=torch.long)
+
+    dataset = TensorDataset(all_mention_token_ids,
+                            all_mention_token_masks,
+                            all_candidate_token_ids_1,
+                            all_candidate_token_masks_1,
+                            all_candidate_token_ids_2,
+                            all_candidate_token_masks_2,
+                            all_labels,
+                            all_mention_start_indices,
+                            all_mention_end_indices,
+                            all_num_mentions,
+                            all_seq_tag_ids,
+                            )
+    return dataset, (all_entities, all_entity_token_ids, all_entity_token_masks), (all_document_ids, all_label_candidate_ids)
 
