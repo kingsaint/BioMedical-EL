@@ -655,8 +655,9 @@ def convert_examples_to_features(
 def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,device,optimizer,scheduler):
     # Saving best-practices: if you use defaults names for the model, you can reload it using from_pretrained()
     # Create output directory if needed
-    training_run_dir = os.path.join(args.output_dir,"training_run_{}GPUs_{}epochs".format(args.n_gpu,epoch_num))
-    final = args.num_train_epochs == epoch_num+1
+    run = mlflow.active_run()
+    training_run_dir = os.path.join(args.output_dir,f"training_run_{run.info.run_id}".format(args.n_gpu,epoch_num))
+    final = args.num_train_epochs == (epoch_num+1)
     if final:
         output_dir = os.path.join(training_run_dir, "checkpoint-{}-FINAL".format(epoch_num))
     else:
