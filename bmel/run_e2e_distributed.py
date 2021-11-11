@@ -76,7 +76,7 @@ def set_seed(args):
 
 def train_hvd(args):
     """ Train the model """
-    with mlflow.start_run(run_uuid = active_run_uuid): 
+    with mlflow.start_run(run_uuid = args.active_run_uuid): 
         hvd.init() 
         os.environ['CUDA_VISIBLE_DEVICES'] = str(hvd.local_rank())
         comm == get_comm_magic()
