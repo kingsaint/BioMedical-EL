@@ -60,7 +60,7 @@ def train_hvd(args):
             comm.barrier()  # Make sure only the first process in distributed training will download model & vocab
         
         args.model_type = args.model_type.lower()
-        config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
+        config_class, _, tokenizer_class = MODEL_CLASSES[args.model_type]
         config = config_class.from_pretrained(
             args.config_name if args.config_name else args.model_name_or_path,
             cache_dir=args.cache_dir if args.cache_dir else None,
@@ -157,7 +157,7 @@ def train_hvd(args):
             epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=hvd.rank()!=0)
             for step, batch in enumerate(epoch_iterator):
                 model.train()
-                batch = tuple(t.to(device) for t in batch)
+                batch = tuple(t.to(device) for t in batch)#t=10 so we only work on subset of data
 
 
                 ner_inputs = {"args": args,
