@@ -193,118 +193,102 @@ def train_hvd(args):
     set_seed(args)  # Added here for reproductibility
     
     for epoch_num in train_iterator:
-      epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=hvd.rank()!=0)
-      for step, batch in enumerate(epoch_iterator):
-          model.train()
-          batch = tuple(t.to(device) for t in batch)
+        epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=hvd.rank()!=0)
+        for step, batch in enumerate(epoch_iterator):
+            model.train()
+            batch = tuple(t.to(device) for t in batch)
 
 
-          ner_inputs = {"args": args,
-                        "mention_token_ids": batch[0],
-                        "mention_token_masks": batch[1],
-                        "mention_start_indices": batch[7],
-                        "mention_end_indices": batch[8],
-                        "mode": 'ner',
-                        }
-
-          if args.use_hard_and_random_negatives:
-              ned_inputs = {"args": args,
-                            "last_hidden_states": None,
-                            "mention_start_indices": batch[7],
-                            "mention_end_indices": batch[8],
-                            "candidate_token_ids_1": batch[2],
-                            "candidate_token_masks_1": batch[3],
-                            "candidate_token_ids_2": batch[4],
-                            "candidate_token_masks_2": batch[5],
-                            "labels": batch[6],
-                            "mode": 'ned',
-                            }
-          else:
-              ned_inputs = {"args": args,
+            ner_inputs = {"args": args,
                             "mention_token_ids": batch[0],
                             "mention_token_masks": batch[1],
                             "mention_start_indices": batch[7],
                             "mention_end_indices": batch[8],
-                            "candidate_token_ids_1": batch[2],
-                            "candidate_token_masks_1": batch[3],
-                            "labels": batch[6],
-                            "mode": 'ned',
+                            "mode": 'ner',
                             }
-          if args.ner:
-              loss, _ = model.forward(**ner_inputs)
-          elif args.alternate_batch:
-              # Randomly choose whether to do tagging or NED for the current batch
-              if random.random() <= 0.5:
-                  loss = model.forward(**ner_inputs)
-              else:
-                  loss, _ = model.forward(**ned_inputs)
-          elif args.ner_and_ned:
-              ner_loss, last_hidden_states = model.forward(**ner_inputs)
-              ned_inputs["last_hidden_states"] = last_hidden_states
-              ned_loss, _ = model.forward(**ned_inputs)
-              loss = ner_loss + ned_loss
-          else:
-              logger.info(" Specify a training protocol from (ner, alternate_batch, ner_and_ned)")
 
-          if args.n_gpu > 1:
-              loss = loss.mean()  # mean() to average on multi-gpu parallel training
-          if args.gradient_accumulation_steps > 1:
-              loss = loss / args.gradient_accumulation_steps
+            if args.use_hard_and_random_negatives:
+                ned_inputs = {"args": args,
+                                "last_hidden_states": None,
+                                "mention_start_indices": batch[7],
+                                "mention_end_indices": batch[8],
+                                "candidate_token_ids_1": batch[2],
+                                "candidate_token_masks_1": batch[3],
+                                "candidate_token_ids_2": batch[4],
+                                "candidate_token_masks_2": batch[5],
+                                "labels": batch[6],
+                                "mode": 'ned',
+                                }
+            else:
+                ned_inputs = {"args": args,
+                                "mention_token_ids": batch[0],
+                                "mention_token_masks": batch[1],
+                                "mention_start_indices": batch[7],
+                                "mention_end_indices": batch[8],
+                                "candidate_token_ids_1": batch[2],
+                                "candidate_token_masks_1": batch[3],
+                                "labels": batch[6],
+                                "mode": 'ned',
+                                }
+            if args.ner:
+                loss, _ = model.forward(**ner_inputs)
+            elif args.alternate_batch:
+                # Randomly choose whether to do tagging or NED for the current batch
+                if random.random() <= 0.5:
+                    loss = model.forward(**ner_inputs)
+                else:
+                    loss, _ = model.forward(**ned_inputs)
+            elif args.ner_and_ned:
+                ner_loss, last_hidden_states = model.forward(**ner_inputs)
+                ned_inputs["last_hidden_states"] = last_hidden_states
+                ned_loss, _ = model.forward(**ned_inputs)
+                loss = ner_loss + ned_loss
+            else:
+                logger.info(" Specify a training protocol from (ner, alternate_batch, ner_and_ned)")
 
-          else:
-              loss.backward()
 
-          tr_loss += loss.item()
+            if args.gradient_accumulation_steps > 1:
+                loss = loss / args.gradient_accumulation_steps
 
-          if (step + 1) % args.gradient_accumulation_steps == 0:
-              torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
-              optimizer.step()
-              scheduler.step()  # Update learning rate schedule
-              model.zero_grad()
-              global_step += 1
+            else:
+                loss.backward()
 
-              if hvd.rank()==0 and args.save_steps > 0 and global_step % args.save_steps == 0:
-                  # Save model checkpoint
-                  output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(global_step))
-                  if not os.path.exists(output_dir):
-                      os.makedirs(output_dir)
-                  model_to_save = (
-                      model.module if hasattr(model, "module") else model
-                  )  # Take care of distributed/parallel training
-                  model_to_save.save_pretrained(output_dir)
-                  tokenizer.save_pretrained(output_dir)
+            tr_loss += loss.item()
 
-                  torch.save(args, os.path.join(output_dir, "training_args.bin"))
-                  logger.info("Saving model checkpoint to %s", output_dir)
+            if (step + 1) % args.gradient_accumulation_steps == 0:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+                optimizer.step()
+                scheduler.step()  # Update learning rate schedule
+                model.zero_grad()
+                global_step += 1
+                
 
-                  torch.save(optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
-                  torch.save(scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
-                  logger.info("Saving optimizer and scheduler states to %s", output_dir)
-
-          if args.max_steps > 0 and global_step > args.max_steps:
-              epoch_iterator.close()
-              break
+            
+            if args.max_steps > 0 and global_step > args.max_steps:
+                epoch_iterator.close()
+                break
+        #save checkpoint after every epoch
+        if hvd.rank() == 0: 
+            save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,device,optimizer,scheduler)
+            
 
       # New data loader for the next epoch
-      if args.use_random_candidates:
-          # New data loader at every epoch for random sampler if we use random negative samples
-          train_dataset, _, _= load_and_cache_examples(args, tokenizer)
-          train_sampler = DistributedSampler(train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
-          train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.per_gpu_train_batch_size)
-      elif args.use_hard_negatives or args.use_hard_and_random_negatives:
-          # New data loader at every epoch for hard negative sampler if we use hard negative mining
-          train_dataset, _, _= load_and_cache_examples(args, tokenizer, model)
-          train_sampler = DistributedSampler(train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
-          train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.per_gpu_train_batch_size)
+        if args.use_random_candidates:
+            # New data loader at every epoch for random sampler if we use random negative samples
+            train_dataset, _, _= load_and_cache_examples(args, tokenizer)
+            train_sampler = DistributedSampler(train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
+            train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.per_gpu_train_batch_size)
+        elif args.use_hard_negatives or args.use_hard_and_random_negatives:
+            # New data loader at every epoch for hard negative sampler if we use hard negative mining
+            train_dataset, _, _= load_and_cache_examples(args, tokenizer, model)
+            train_sampler = DistributedSampler(train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
+            train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.per_gpu_train_batch_size)
 
-          # Anneal the lamba_1 and lambda_2 weights
-          args.lambda_1 = args.lambda_1 - 1 / (epoch_num + 1)
-          args.lambda_2 = args.lambda_2 + 1 / (epoch_num + 1)
-          
-    if hvd.rank() == 0: 
-      logger.info("Saving model checkpoint to %s", args.output_dir)  
-      save_checkpoint(args,tokenizer,tokenizer_class,model,device)
-      logger.info("Saved model checkpoint to %s", args.output_dir)
+        # Anneal the lamba_1 and lambda_2 weights
+        args.lambda_1 = args.lambda_1 - 1 / (epoch_num + 1)
+        args.lambda_2 = args.lambda_2 + 1 / (epoch_num + 1)  
+    
+    
     return global_step, tr_loss / global_step
   
 def load_and_cache_examples(args, tokenizer, model=None):
@@ -386,6 +370,46 @@ def load_and_cache_examples(args, tokenizer, model=None):
                             )
     return dataset, (all_entities, all_entity_token_ids, all_entity_token_masks), (all_document_ids, all_label_candidate_ids)
 
+def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,device,optimizer,scheduler):
+    # Saving best-practices: if you use defaults names for the model, you can reload it using from_pretrained()
+    # Create output directory if needed
+    training_run_dir = os.path.join(args.output_dir,"training_run_{}GPUs_{}epochs".format(args.gpu,epoch_num))
+    if args.num_train_epochs == epoch_num:
+        final = True
+    if final:
+        output_dir = os.path.join(training_run_dir, "checkpoint-{}-FINAL".format(epoch_num))
+    else:
+        output_dir = os.path.join(training_run_dir, "checkpoint-{}".format(epoch_num))
+
+    logger.info("Saving model checkpoint to %s", output_dir)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    # Save a trained model, configuration and tokenizer using `save_pretrained()`.
+    # They can then be reloaded using `from_pretrained()`
+    model_to_save = (
+        model.module if hasattr(model, "module") else model
+    )  # Take care of distributed/parallel training
+
+    model_to_save.save_pretrained(output_dir)
+    tokenizer.save_pretrained(output_dir)
+    torch.save(args, os.path.join(output_dir, "training_args.bin"))
+    torch.save(optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
+    torch.save(scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
+    logger.info("Saving optimizer and scheduler states to %s", output_dir)
+    
+    # Load a trained model and vocabulary that you have fine-tuned to ensure proper
+    if final:
+        model.load_state_dict(torch.load(os.path.join(output_dir, 'pytorch_model.bin')))
+        tokenizer = tokenizer_class.from_pretrained(output_dir)
+        model.to(device)
+        
+    logger.info("Saved model checkpoint to %s", output_dir)
+
+
+                # Save model checkpoint
+            
+
+    
 def main(args=None):
     args = get_args(args)
     if (
@@ -408,26 +432,7 @@ def main(args=None):
         hr = HorovodRunner(np=args.n_gpu,driver_log_verbosity='all') 
         hr.run(train_hvd, args=args)
         
-def save_checkpoint(args,tokenizer,tokenizer_class,model,device):
-  # Saving best-practices: if you use defaults names for the model, you can reload it using from_pretrained()
-  # Create output directory if needed
-  if not os.path.exists(args.output_dir):
-      os.makedirs(args.output_dir)
-  # Save a trained model, configuration and tokenizer using `save_pretrained()`.
-  # They can then be reloaded using `from_pretrained()`
-  model_to_save = (
-      model.module if hasattr(model, "module") else model
-  )  # Take care of distributed/parallel training
-  model_to_save.save_pretrained(args.output_dir)
-  tokenizer.save_pretrained(args.output_dir)
 
-  # Good practice: save your training arguments together with the trained model
-  torch.save(args, os.path.join(args.output_dir, "training_args.bin"))
-
-  # Load a trained model and vocabulary that you have fine-tuned
-  model.load_state_dict(torch.load(os.path.join(args.output_dir, 'pytorch_model.bin')))
-  tokenizer = tokenizer_class.from_pretrained(args.output_dir)
-  model.to(device)
   
 def get_args(dict_args = None):
 
