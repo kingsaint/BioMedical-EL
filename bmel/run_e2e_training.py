@@ -28,7 +28,7 @@ import mlflow
 
 logger = logging.getLogger(__name__)
 
-TRAINING_ARGS = set("lambda_1",
+TRAINING_ARGS = {   "lambda_1",
                     "lambda_2",
                     "weight_decay",
                     "learning_rate",
@@ -49,7 +49,7 @@ TRAINING_ARGS = set("lambda_1",
                     "ner",
                     "ner_and_ned",
                     "seed"
-                    )
+                }   
 
 def train_hvd(args):
     """ Train the model """
