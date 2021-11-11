@@ -655,7 +655,7 @@ def convert_examples_to_features(
 def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,device,optimizer,scheduler):
     # Saving best-practices: if you use defaults names for the model, you can reload it using from_pretrained()
     # Create output directory if needed
-    training_run_dir = os.path.join(args.output_dir,"training_run_{}GPUs_{}epochs".format(args.gpu,epoch_num))
+    training_run_dir = os.path.join(args.output_dir,"training_run_{}GPUs_{}epochs".format(args.n_gpu,epoch_num))
     if args.num_train_epochs == epoch_num:
         final = True
     if final:
