@@ -46,6 +46,7 @@ TRAINING_ARGS = {   "lambda_1",
                     "use_tfidf_candidates",
                     "use_random_candidates",
                     "use_hard_negatives",
+                    "use_hard_and_random_negatives",
                     "ner",
                     "ner_and_ned",
                     "seed"
