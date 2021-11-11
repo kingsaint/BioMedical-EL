@@ -76,6 +76,9 @@ def set_seed(args):
 
 def train_hvd(args):
     """ Train the model """
+    mlflow.set_tracking_uri("databricks")
+    os.environ['DATABRICKS_HOST'] = "https://trend-prod.cloud.databricks.com/"
+    os.environ['DATABRICKS_TOKEN'] = args.db_token
     with mlflow.start_run(run_id = args.active_run_id): 
         hvd.init() 
         os.environ['CUDA_VISIBLE_DEVICES'] = str(hvd.local_rank())
@@ -409,7 +412,7 @@ def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,device,optimi
             
 
     
-def main(args=None):
+def main(args=None,db_token):
     args = get_args(args)
     
     if (
@@ -433,6 +436,7 @@ def main(args=None):
         # Training
         if args.do_train:
             args.active_run_id = mlflow.active_run().info.run_id
+            args.db_token = token
             hr = HorovodRunner(np=args.n_gpu,driver_log_verbosity='all') 
             hr.run(train_hvd, args=args)
         
