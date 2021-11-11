@@ -76,7 +76,7 @@ def set_seed(args):
 
 def train_hvd(args):
     """ Train the model """
-    with mlflow.start_run(run_uuid = args.active_run_uuid): 
+    with mlflow.start_run(run_id = args.active_run_id): 
         hvd.init() 
         os.environ['CUDA_VISIBLE_DEVICES'] = str(hvd.local_rank())
         comm == get_comm_magic()
@@ -432,7 +432,7 @@ def main(args=None):
         
         # Training
         if args.do_train:
-            args.active_run_uuid = mlflow.active_run().info.run_uuid
+            args.active_run_id = mlflow.active_run().info.run_id
             hr = HorovodRunner(np=args.n_gpu,driver_log_verbosity='all') 
             hr.run(train_hvd, args=args)
         
