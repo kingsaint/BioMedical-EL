@@ -42,6 +42,7 @@ from .modeling_e2e_span import DualEncoderBert, PreDualEncoder
 
 import horovod.torch as hvd
 from sparkdl import HorovodRunner
+import mlflow
 
 from mpi4py import MPI
 comm = None
@@ -253,7 +254,9 @@ def train_hvd(args):
             else:
                 loss.backward()
 
-            tr_loss += loss.item()
+            tr_loss_averaged_across_all_instances = hvd.allreduce(loss).item()
+
+            mlflow.log_metrics({"averaged_training_loss_per_step":tr_loss_averaged_across_all_instances},step)
 
             if (step + 1) % args.gradient_accumulation_steps == 0:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
@@ -267,11 +270,12 @@ def train_hvd(args):
             if args.max_steps > 0 and global_step > args.max_steps:
                 epoch_iterator.close()
                 break
-        #save checkpoint after every epoch
-        if hvd.rank() == 0: 
+
+        #save checkpoint at end or after prescribed number of epochs
+        if hvd.rank() == 0 and (epoch_num==args.num_train_epochs or epoch_num % args.save_epochs == 0):
             save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,device,optimizer,scheduler)
             
-
+        mlflow.log_metrics({"averaged_training_loss_per_epoch":tr_loss_averaged_across_all_instances},epoch_num)
       # New data loader for the next epoch
         if args.use_random_candidates:
             # New data loader at every epoch for random sampler if we use random negative samples
@@ -412,6 +416,7 @@ def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,device,optimi
     
 def main(args=None):
     args = get_args(args)
+    
     if (
         os.path.exists(args.output_dir)
         and os.listdir(args.output_dir)
@@ -423,14 +428,18 @@ def main(args=None):
                 args.output_dir
             )
         )
-
+    mlflow.set_experiment(args.experiment_name)
     # Set seed
     set_seed(args)
-    
-    # Training
-    if args.do_train:
-        hr = HorovodRunner(np=args.n_gpu,driver_log_verbosity='all') 
-        hr.run(train_hvd, args=args)
+    with mlflow.start_run():
+        for arg_name,arg_value in args.__dict__.items():
+            mlflow.log_param(arg_name,arg_value)
+
+
+        # Training
+        if args.do_train:
+            hr = HorovodRunner(np=args.n_gpu,driver_log_verbosity='all') 
+            hr.run(train_hvd, args=args)
         
 
   
@@ -541,6 +550,7 @@ def get_args(dict_args = None):
 
     parser.add_argument("--logging_steps", type=int, default=100, help="Log every X updates steps.")
     parser.add_argument("--save_steps", type=int, default=5000, help="Save checkpoint every X updates steps.")
+    parser.add_argument("--save_epochs", type=int, default=1, help="Save checkpoint every X epochs.")
     parser.add_argument(
         "--eval_all_checkpoints",
         action="store_true",
@@ -613,6 +623,7 @@ def get_args(dict_args = None):
     parser.add_argument("--local_rank", type=int, default=-1, help="For distributed training: local_rank")
     parser.add_argument("--server_ip", type=str, default="", help="For distant debugging.")
     parser.add_argument("--server_port", type=str, default="", help="For distant debugging.")
+    parser.add_argument("---mflow_experiment", type=str, default="", help="To log parameters and metrics."))
     list_args = []
     if dict_args != None:
       for key,value in dict_args.items():
