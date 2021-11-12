@@ -265,7 +265,7 @@ def main(db_token,args=None):
     set_seed(args)
     if not args.do_train and not args.do_eval:
         raise Exception("Pick at least one of do_train or do_eval.")
-    parameters_to_log = {}
+    parameters_to_log = set()
     hvd_functions = []
     if args.do_train:
         hvd_functions.append(train_hvd)
