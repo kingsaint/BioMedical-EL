@@ -703,7 +703,7 @@ def load_and_cache_examples(args, tokenizer, model=None):
         args.data_dir,
         "cached_{}_{}".format(
             mode,
-            list(filter(None, args.model_name_or_path.split("/"))).pop()),
+            list(filter(None, args.base_model_name_or_path.split("/"))).pop()),
     )
     if os.path.exists(cached_features_file) and not args.overwrite_cache:
         logger.info("Loading features from cached file %s", cached_features_file)
