@@ -53,8 +53,7 @@ def eval_hvd(args, prefix=""):
         eval_sampler = DistributedSampler(eval_dataset, num_replicas=hvd.size(), rank=hvd.rank())
         eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.per_gpu_train_batch_size)
         
-        if args.use_all_candidates:
-            all_candidate_embeddings = get_all_candidates(args, model, all_entity_token_ids, all_entity_token_masks)
+        all_candidate_embeddings = get_all_candidates(args, model, all_entity_token_ids, all_entity_token_masks)
         # Eval!
         logger.info("***** Running evaluation {} *****".format(prefix))
         logger.info("  Num examples = %d", len(eval_dataset))
