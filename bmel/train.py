@@ -16,7 +16,7 @@ from transformers import (
     get_linear_schedule_with_warmup,
 )
 
-from .utils_e2e_span import MODEL_CLASSES, get_args, get_comm_magic, load_and_cache_examples, save_checkpoint, set_seed
+from .utils_e2e_span import get_comm_magic, get_model, load_and_cache_examples, save_checkpoint, set_seed
 
 
 from .modeling_e2e_span import DualEncoderBert, PreDualEncoder
@@ -81,31 +81,7 @@ def train_hvd(args):
         if hvd.rank()!=0:
             comm.barrier()  # Make sure only the first process in distributed training will download model & vocab
         
-        args.model_type = args.model_type.lower()
-        config_class, _, tokenizer_class = MODEL_CLASSES[args.model_type]
-        config = config_class.from_pretrained(
-            args.config_name if args.config_name else args.model_name_or_path,
-            cache_dir=args.cache_dir if args.cache_dir else None,
-        )
-        tokenizer = tokenizer_class.from_pretrained(
-            args.tokenizer_name if args.tokenizer_name else args.model_name_or_path,
-            do_lower_case=args.do_lower_case,
-            cache_dir=args.cache_dir if args.cache_dir else None,
-        )
-
-        pretrained_bert = PreDualEncoder.from_pretrained(
-            args.model_name_or_path,
-            from_tf=bool(".ckpt" in args.model_name_or_path),
-            config=config,
-            cache_dir=args.cache_dir if args.cache_dir else None,
-        )
-
-        # Add new special tokens '[Ms]' and '[Me]' to tag mention
-        new_tokens = ['[Ms]', '[Me]']
-        num_added_tokens = tokenizer.add_tokens(new_tokens)
-        pretrained_bert.resize_token_embeddings(len(tokenizer))
-
-        model = DualEncoderBert(config, pretrained_bert)
+        tokenizer_class, tokenizer, model = get_model(args)
 
         if hvd.rank()==0:
             comm.barrier()  # Make sure only the first process in distributed training will download model & vocab
@@ -177,87 +153,7 @@ def train_hvd(args):
         
         for epoch_num in train_iterator:
             epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=hvd.rank()!=0)
-            for step, batch in enumerate(epoch_iterator):
-                model.train()
-                batch = tuple(t.to(device) for t in batch)#t=10 so we only work on subset of data
-
-
-                ner_inputs = {"args": args,
-                                "mention_token_ids": batch[0],
-                                "mention_token_masks": batch[1],
-                                "mention_start_indices": batch[7],
-                                "mention_end_indices": batch[8],
-                                "mode": 'ner'
-                                }
-
-                if args.use_hard_and_random_negatives:
-                    ned_inputs = {"args": args,
-                                    "last_hidden_states": None,
-                                    "mention_start_indices": batch[7],
-                                    "mention_end_indices": batch[8],
-                                    "candidate_token_ids_1": batch[2],
-                                    "candidate_token_masks_1": batch[3],
-                                    "candidate_token_ids_2": batch[4],
-                                    "candidate_token_masks_2": batch[5],
-                                    "labels": batch[6],
-                                    "mode": 'ned'
-                                    }
-                else:
-                    ned_inputs = {"args": args,
-                                    "mention_token_ids": batch[0],
-                                    "mention_token_masks": batch[1],
-                                    "mention_start_indices": batch[7],
-                                    "mention_end_indices": batch[8],
-                                    "candidate_token_ids_1": batch[2],
-                                    "candidate_token_masks_1": batch[3],
-                                    "labels": batch[6],
-                                    "mode": 'ned'
-                                    }
-                if args.ner:
-                    loss, _ = model.forward(**ner_inputs)
-                elif args.alternate_batch:
-                    # Randomly choose whether to do tagging or NED for the current batch
-                    if random.random() <= 0.5:
-                        loss = model.forward(**ner_inputs)
-                    else:
-                        loss, _ = model.forward(**ned_inputs)
-                elif args.ner_and_ned:
-                    ner_loss, last_hidden_states = model.forward(**ner_inputs)
-                    ned_inputs["last_hidden_states"] = last_hidden_states
-                    ned_loss, _ = model.forward(**ned_inputs)
-                    loss = ner_loss + ned_loss
-                else:
-                    logger.info(" Specify a training protocol from (ner, alternate_batch, ner_and_ned)")
-
-
-                if args.gradient_accumulation_steps > 1:
-                    loss = loss / args.gradient_accumulation_steps
-
-                else:
-                    loss.backward()
-                if hvd.rank() == 0:
-                    tr_loss_averaged_across_all_instances = hvd.allreduce(loss).item()
-                    mlflow.log_metrics({"averaged_training_loss_per_step":tr_loss_averaged_across_all_instances},step)
-
-                if (step + 1) % args.gradient_accumulation_steps == 0:
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
-                    optimizer.step()
-                    scheduler.step()  # Update learning rate schedule
-                    model.zero_grad()
-                    global_step += 1
-                    
-
-                
-                if args.max_steps > 0 and global_step > args.max_steps:
-                    epoch_iterator.close()
-                    break
-            if hvd.rank() == 0:    
-                mlflow.log_metrics({"averaged_training_loss_per_epoch":tr_loss_averaged_across_all_instances},epoch_num)
-            #save checkpoint at end or after prescribed number of epochs
-            if hvd.rank() == 0 and (epoch_num==args.num_train_epochs or epoch_num % args.save_epochs == 0):
-                save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,device,optimizer,scheduler)
-            
-            # New data loader for the next epoch
+            train_one_epoch(args, device, tokenizer_class, tokenizer, model, optimizer, scheduler, global_step, epoch_num, epoch_iterator)
             if args.use_random_candidates:
                 # New data loader at every epoch for random sampler if we use random negative samples
                 train_dataset, _, _= load_and_cache_examples(args, tokenizer)
@@ -268,45 +164,101 @@ def train_hvd(args):
                 train_dataset, _, _= load_and_cache_examples(args, tokenizer, model)
                 train_sampler = DistributedSampler(train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
                 train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.per_gpu_train_batch_size)
-
             # Anneal the lamba_1 and lambda_2 weights
             args.lambda_1 = args.lambda_1 - 1 / (epoch_num + 1)
-            args.lambda_2 = args.lambda_2 + 1 / (epoch_num + 1)  
+            args.lambda_2 = args.lambda_2 + 1 / (epoch_num + 1)
+
+def train_one_epoch(args, device, tokenizer_class, tokenizer, model, optimizer, scheduler, global_step, epoch_num, epoch_iterator):
+    for step, batch in enumerate(epoch_iterator):
+        tr_loss_averaged_across_all_instances = train_one_batch(args, device, model, optimizer, scheduler, global_step, step, batch)
+        if args.max_steps > 0 and global_step > args.max_steps:
+            epoch_iterator.close()
+            break
+    if hvd.rank() == 0:    
+        mlflow.log_metrics({"averaged_training_loss_per_epoch":tr_loss_averaged_across_all_instances},epoch_num)
+            #save checkpoint at end or after prescribed number of epochs
+    if hvd.rank() == 0 and (epoch_num==args.num_train_epochs or epoch_num % args.save_epochs == 0):
+        save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,device,optimizer,scheduler)
             
+            # New data loader for the next epoch
 
-    
-def main(db_token,args=None):
-    args = get_args(args)
-    
-    if (
-        os.path.exists(args.output_dir)
-        and os.listdir(args.output_dir)
-        and args.do_train
-        and not args.overwrite_output_dir
-    ):
-        raise ValueError(
-            "Output directory ({}) already exists and is not empty. Use --overwrite_output_dir to overcome.".format(
-                args.output_dir
-            )
-        )
-    mlflow.set_experiment(args.experiment_name)
-    # Set seed
-    set_seed(args)
-    with mlflow.start_run() as run:
-        for arg_name,arg_value in args.__dict__.items():
-            if arg_name in TRAINING_ARGS:
-                mlflow.log_param(arg_name,arg_value)
-        
-        # Training
-        if args.do_train:
-            args.active_run_id = mlflow.active_run().info.run_id
-            args.db_token = db_token
-            hr = HorovodRunner(np=args.n_gpu,driver_log_verbosity='all') 
-            hr.run(train_hvd, args=args)
+
+def train_one_batch(args, device, model, optimizer, scheduler, global_step, step, batch):
+    model.train()
+    ner_inputs, ned_inputs = get_inputs(args, device, model, batch)
+    if args.ner:
+        loss, _ = model.forward(**ner_inputs)
+    elif args.alternate_batch:
+                    # Randomly choose whether to do tagging or NED for the current batch
+        if random.random() <= 0.5:
+            loss = model.forward(**ner_inputs)
+        else:
+            loss, _ = model.forward(**ned_inputs)
+    elif args.ner_and_ned:
+        ner_loss, last_hidden_states = model.forward(**ner_inputs)
+        ned_inputs["last_hidden_states"] = last_hidden_states
+        ned_loss, _ = model.forward(**ned_inputs)
+        loss = ner_loss + ned_loss
+    else:
+        logger.info(" Specify a training protocol from (ner, alternate_batch, ner_and_ned)")
+
+
+    if args.gradient_accumulation_steps > 1:
+        loss = loss / args.gradient_accumulation_steps
+
+    else:
+        loss.backward()
+    if hvd.rank() == 0:
+        tr_loss_averaged_across_all_instances = hvd.allreduce(loss).item()
+        mlflow.log_metrics({"averaged_training_loss_per_step":tr_loss_averaged_across_all_instances},step)
+
+    if (step + 1) % args.gradient_accumulation_steps == 0:
+        torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+        optimizer.step()
+        scheduler.step()  # Update learning rate schedule
+        model.zero_grad()
+        global_step += 1
+    return tr_loss_averaged_across_all_instances
+
+def get_inputs(args, device, model, batch):
+    batch = tuple(t.to(device) for t in batch)
+    ner_inputs = {"args": args,
+                                "mention_token_ids": batch[0],
+                                "mention_token_masks": batch[1],
+                                "mention_start_indices": batch[7],
+                                "mention_end_indices": batch[8],
+                                "mode": 'ner'
+                                }
+
+    if args.use_hard_and_random_negatives:
+        ned_inputs = {"args": args,
+                                    "last_hidden_states": None,
+                                    "mention_start_indices": batch[7],
+                                    "mention_end_indices": batch[8],
+                                    "candidate_token_ids_1": batch[2],
+                                    "candidate_token_masks_1": batch[3],
+                                    "candidate_token_ids_2": batch[4],
+                                    "candidate_token_masks_2": batch[5],
+                                    "labels": batch[6],
+                                    "mode": 'ned'
+                                    }
+    else:
+        ned_inputs = {"args": args,
+                                    "mention_token_ids": batch[0],
+                                    "mention_token_masks": batch[1],
+                                    "mention_start_indices": batch[7],
+                                    "mention_end_indices": batch[8],
+                                    "candidate_token_ids_1": batch[2],
+                                    "candidate_token_masks_1": batch[3],
+                                    "labels": batch[6],
+                                    "mode": 'ned'
+                                    }
+                        
+    return ner_inputs,ned_inputs
+
+
         
 
-if __name__ == "__main__":
-    main()
     
   
 

@@ -2,7 +2,6 @@ import os
 import json
 import random
 import math
-import argparse
 import logging
 from mpi4py import MPI
 import numpy as np
@@ -12,14 +11,13 @@ import torch
 from .modeling_bert import BertModel
 from .tokenization_bert import BertTokenizer
 from .configuration_bert import BertConfig
+from .modeling_e2e_span import DualEncoderBert, PreDualEncoder
 
 import horovod.torch as hvd
 from sparkdl import HorovodRunner
 import mlflow
 
-ALL_MODELS = sum(
-    (tuple(conf.pretrained_config_archive_map.keys()) for conf in [BertConfig]), ()
-)
+
 
 MODEL_CLASSES = {
     "bert": (BertConfig, BertModel, BertTokenizer),
@@ -655,9 +653,10 @@ def convert_examples_to_features(
 def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,device,optimizer,scheduler):
     # Saving best-practices: if you use defaults names for the model, you can reload it using from_pretrained()
     # Create output directory if needed
+    epoch_num = epoch_num + 1 
     run = mlflow.active_run()
     training_run_dir = os.path.join(args.output_dir,f"training_run_{run.info.run_id}".format(args.n_gpu,epoch_num))
-    final = args.num_train_epochs == (epoch_num+1)
+    final = args.num_train_epochs == epoch_num
     if final:
         output_dir = os.path.join(training_run_dir, "checkpoint-{}-FINAL".format(epoch_num))
     else:
@@ -773,196 +772,255 @@ def load_and_cache_examples(args, tokenizer, model=None):
                             )
     return dataset, (all_entities, all_entity_token_ids, all_entity_token_masks), (all_document_ids, all_label_candidate_ids)
 
-def get_args(dict_args = None):
+def get_all_candidates(args, model, all_entity_token_ids, all_entity_token_masks):
+    all_candidate_embeddings = []
+    logger.info("INFO: Collecting all candidate embeddings.")
+    with torch.no_grad():
+        for i, _ in enumerate(all_entity_token_ids):
+            logger.info(str(i))
+            entity_tokens = all_entity_token_ids[i]
+            entity_tokens_masks = all_entity_token_masks[i]
+            candidate_token_ids = torch.LongTensor([entity_tokens]).to(args.device)
+            candidate_token_masks = torch.LongTensor([entity_tokens_masks]).to(args.device)
+            if args.n_gpu > 1:
+                candidate_outputs = model.module.bert_candidate.bert(
+                        input_ids=candidate_token_ids,
+                        attention_mask=candidate_token_masks,
+                    )
+            else:
+                candidate_outputs = model.bert_candidate.bert(
+                        input_ids=candidate_token_ids,
+                        attention_mask=candidate_token_masks,
+                    )
+            candidate_embedding = candidate_outputs[1]
+            all_candidate_embeddings.append(candidate_embedding)
+                #logger.info(str(candidate_embedding))
+    all_candidate_embeddings = torch.cat(all_candidate_embeddings, dim=0)
+    logger.info("INFO: Collected all candidate embeddings.")
+    print("Tensor size = ", all_candidate_embeddings.size())
+    all_candidate_embeddings = all_candidate_embeddings.unsqueeze(0).expand(args.eval_batch_size, -1, -1)
 
-    parser = argparse.ArgumentParser()
+def get_mention_spans(mention_token_ids, predicted_tags, doc_lens,tokenizer):
+        b_size = predicted_tags.size(0)
+        b_start_indices = []
+        b_end_indices = []
+        for b_idx in range(b_size):
+            tags = predicted_tags[b_idx].cpu().numpy()
+            start_indices = []
+            end_indices = []
+            start_index = 0
+            end_index = 0
+            # for j in range(doc_lens[b_idx]):
+            #     if tags[j] == 1:  # If the token tag is 1, this is the beginning of a mention
+            #         start_index = j
+            #         end_index = j
+            #     elif tags[j] == 2:
+            #         if j == 0: # It is the first token (ideally shouldn't be though as it corresponds to the [CLS] token
+            #             start_index = j
+            #             end_index = j
+            #         else:
+            #             if tags[j-1] == 1 or tags[j-1] == 2:  # If the previous token is 1, then it's a part of a mention
+            #                 end_index += 1
+            #             elif tags[j-1] == 0:  # If the previous token is 0, it's the start of a mention (imperfect though)
+            #                 start_index = j
+            #                 end_index = j
+            #     elif tags[j] == 0 and (tags[j-1] == 1 or tags[j-1] == 2): # End of mention
+            #         start_indices.append(start_index)
+            #         end_indices.append(end_index)
+            mention_found = False
+            for j in range(1, doc_lens[b_idx] - 1): # Excluding [CLS], [SEP]
+                if tags[j] == 1:  # If the token tag is 1, this is the beginning of a mention B
+                    start_index = j
+                    end_index = j
+                    for k in range(j+1, doc_lens[b_idx] - 1):
+                        if tokenizer.convert_ids_to_tokens([mention_token_ids[b_idx][k]])[0].startswith('##'):
+                            j += 1
+                            end_index += 1
+                        else:
+                            break
+                    mention_found = True
+                elif tags[j] == 2:
+                    if tags[j-1] == 0:  # If the previous token is 0, it's the start of a mention (imperfect though)
+                            start_index = j
+                            end_index = j
+                    else:
+                        end_index += 1
+                    for k in range(j+1, doc_lens[b_idx] - 1):
+                        if tokenizer.convert_ids_to_tokens([mention_token_ids[b_idx][k]])[0].startswith('##'):
+                            j += 1
+                            end_index += 1
+                        else:
+                            break
+                    mention_found = True
+                elif tags[j] == 0 and mention_found: # End of mention
+                    start_indices.append(start_index)
+                    end_indices.append(end_index)
+                    mention_found = False
 
-    # Required parameters
-    parser.add_argument(
-        "--data_dir",
-        default=None,
-        type=str,
-        required=True,
-        help="The input data dir. Should contain the .tsv files (or other data files) for the task.",
-    )
-    parser.add_argument(
-        "--model_type",
-        default=None,
-        type=str,
-        required=True,
-        help="Model type selected in the list: " + ", ".join(MODEL_CLASSES.keys()),
-    )
-    parser.add_argument(
-        "--model_name_or_path",
-        default=None,
-        type=str,
-        required=True,
-        help="Path to pre-trained model or shortcut name selected in the list: " + ", ".join(ALL_MODELS),
-    )
+            # If the last token(s) are a mention
+            if mention_found:
+                start_indices.append(start_index)
+                end_indices.append(end_index)
 
-    parser.add_argument(
-        "--output_dir",
-        default=None,
-        type=str,
-        required=True,
-        help="The output directory where the model predictions and checkpoints will be written.",
-    )
+            b_start_indices.append(start_indices)
+            b_end_indices.append(end_indices)
+        return b_start_indices, b_end_indices
 
-    parser.add_argument(
-        "--resume_path",
-        default=None,
-        type=str,
-        required=False,
-        help="Path to the checkpoint from where the training should resume"
-    )
-    # Other parameters
-    parser.add_argument(
-        "--config_name", default="", type=str, help="Pretrained config name or path if not the same as model_name"
-    )
-    parser.add_argument(
-        "--tokenizer_name",
-        default="",
-        type=str,
-        help="Pretrained tokenizer name or path if not the same as model_name",
-    )
-    parser.add_argument(
-        "--cache_dir",
-        default="",
-        type=str,
-        help="Where do you want to store the pre-trained models downloaded from s3",
-    )
-    parser.add_argument(
-        "--max_seq_length",
-        default=512,
-        type=int,
-        help="The maximum total input sequence length after tokenization. Sequences longer "
-        "than this will be truncated, sequences shorter will be padded.",
-    )
-    parser.add_argument(
-        "--max_mention_length",
-        default=20,
-        type=int,
-        help="Maximum length of a mention span"
-    )
-    parser.add_argument("--do_train", action="store_true", help="Whether to run training.")
-    parser.add_argument("--do_eval", action="store_true", help="Whether to run eval on the test set.")
-    parser.add_argument(
-        "--evaluate_during_training", action="store_true", help="Rul evaluation during training at each logging step."
-    )
-    parser.add_argument(
-        "--do_lower_case", action="store_true", default=False, help="Set this flag if you are using an uncased model."
-    )
+def find_partially_overlapping_spans(pred_mention_start_indices, pred_mention_end_indices,\
+                                        gold_mention_start_indices, gold_mention_end_indices, doc_lens):
+    b_size = gold_mention_start_indices.shape[0]
+    num_mentions = gold_mention_start_indices.shape[1]
 
-    parser.add_argument("--per_gpu_train_batch_size", default=1, type=int, help="Batch size per GPU/CPU for training.")
-    parser.add_argument(
-        "--per_gpu_eval_batch_size", default=1, type=int, help="Batch size per GPU/CPU for evaluation."
-    )
-    parser.add_argument(
-        "--gradient_accumulation_steps",
-        type=int,
-        default=1,
-        help="Number of updates steps to accumulate before performing a backward/update pass.",
-    )
-    parser.add_argument("--learning_rate", default=1e-5, type=float, help="The initial learning rate for Adam.")
-    parser.add_argument("--weight_decay", default=0.0, type=float, help="Weight decay if we apply some.")
-    parser.add_argument("--adam_epsilon", default=1e-8, type=float, help="Epsilon for Adam optimizer.")
-    parser.add_argument("--max_grad_norm", default=1.0, type=float, help="Max gradient norm.")
-    parser.add_argument(
-        "--num_train_epochs", default=3.0, type=float, help="Total number of training epochs to perform."
-    )
-    parser.add_argument(
-        "--max_steps",
-        default=-1,
-        type=int,
-        help="If > 0: set total number of training steps to perform. Override num_train_epochs.",
-    )
-    parser.add_argument("--warmup_steps", default=0, type=int, help="Linear warmup over warmup_steps.")
+    # Get the Gold mention spans as tuples
+    gold_mention_spans = [[(gold_mention_start_indices[b_idx][j], gold_mention_end_indices[b_idx][j]) \
+                                        for j in range(num_mentions)]
+                            for b_idx in range(b_size)]
 
-    parser.add_argument("--logging_steps", type=int, default=100, help="Log every X updates steps.")
-    parser.add_argument("--save_steps", type=int, default=5000, help="Save checkpoint every X updates steps.")
-    parser.add_argument("--save_epochs", type=int, default=1, help="Save checkpoint every X epochs.")
-    parser.add_argument(
-        "--eval_all_checkpoints",
-        action="store_true",
-        help="Evaluate all checkpoints starting with the same prefix as model_name ending and ending with step number",
-    )
-    parser.add_argument("--no_cuda", action="store_true", help="Avoid using CUDA when available")
-    parser.add_argument("--n_gpu", type=int, default=1, help="Number of GPUs to use when available")
-    parser.add_argument(
-        "--overwrite_output_dir", action="store_true", help="Overwrite the content of the output directory"
-    )
-    parser.add_argument(
-        "--overwrite_cache", action="store_true", help="Overwrite the cached training and evaluation sets"
-    )
-    parser.add_argument(
-        "--use_random_candidates", action="store_true", help="Use random negative candidates during training"
-    )
-    parser.add_argument(
-        "--use_tfidf_candidates", action="store_true", help="Use random negative candidates during training"
-    )
-    parser.add_argument(
-        "--use_hard_negatives",  action="store_true", help="Use hard negative candidates during training"
-    )
-    parser.add_argument(
-        "--use_hard_and_random_negatives", action="store_true", help="Use hard negative candidates during training"
-    )
-    parser.add_argument(
-        "--include_positive", action="store_true", help="Includes the positive candidate during inference"
-    )
-    parser.add_argument(
-        "--use_all_candidates", action="store_true", help="Use all entities as candidates"
-    )
-    parser.add_argument(
-        "--num_candidates", type=int, default=10, help="Number of candidates to consider per mention"
-    )
-    parser.add_argument(
-        "--num_max_mentions", type=int, default=8, help="Maximum number of mentions in a document"
-    )
-    parser.add_argument(
-        "--ner", type=bool, default=False, help="Model will perform only BIO tagging"
-    )
-    parser.add_argument(
-        "--alternate_batch", type=bool, default=False, help="Model will perform either BIO tagging or entity linking per batch during training"
-    )
-    parser.add_argument(
-        "--ner_and_ned", type=bool, default=True, help="Model will perform both BIO tagging and entity linking per batch during training"
-    )
-    parser.add_argument(
-        "--gamma", type=float, default=0, help="Threshold for mention candidate prunning"
-    )
-    parser.add_argument(
-        "--lambda_1", type=float, default=1, help="Weight of the random candidate loss"
-    )
-    parser.add_argument(
-        "--lambda_2", type=float, default=0, help="Weight of the hard negative candidate loss"
-    )
-    parser.add_argument("--seed", type=int, default=42, help="random seed for initialization")
+    # Get the predicted mention spans as tuples
+    predicted_mention_spans = [[] for b_idx in range(b_size)]
+    for b_idx in range(b_size):
+        num_pred_mentions = len(pred_mention_start_indices[b_idx])
+        for j in range(num_pred_mentions):
+            predicted_mention_spans[b_idx].append((pred_mention_start_indices[b_idx][j], pred_mention_end_indices[b_idx][j]))
 
-    parser.add_argument(
-        "--fp16",
-        action="store_true",
-        help="Whether to use 16-bit (mixed) precision (through NVIDIA apex) instead of 32-bit",
-    )
-    parser.add_argument(
-        "--fp16_opt_level",
-        type=str,
-        default="O1",
-        help="For fp16: Apex AMP optimization level selected in ['O0', 'O1', 'O2', and 'O3']."
-        "See details at https://nvidia.github.io/apex/amp.html",
-    )
-    parser.add_argument("--local_rank", type=int, default=-1, help="For distributed training: local_rank")
-    parser.add_argument("--server_ip", type=str, default="", help="For distant debugging.")
-    parser.add_argument("--server_port", type=str, default="", help="For distant debugging.")
-    parser.add_argument("--experiment_name", type=str, default="", help="To log parameters and metrics.")
-    list_args = []
-    if dict_args != None:
-      for key,value in dict_args.items():
-        if value =="True":
-          list_args.append("--"+key)
-        else:
-          list_args.append("--"+key)
-          list_args.append(value)
-      args = parser.parse_args(list_args)
-    else:
-      args = parser.parse_args()
-    return args
+    unmatched_gold_mentions = 0
+    extraneous_predicted_mentions = 0
+    b_overlapping_start_indices = []
+    b_overlapping_end_indices = []
+    b_which_gold_spans = []
+    for b_idx in range(b_size):
+        overlapping_start_indices = []
+        overlapping_end_indices = []
+        which_gold_spans = []
+        p_mention_spans = predicted_mention_spans[b_idx]
+        g_mention_spans = gold_mention_spans[b_idx]
+        for span_num, (g_s, g_e) in enumerate(g_mention_spans):
+            found_overlapping_pred = False
+            for (p_s, p_e) in p_mention_spans:
+                if p_s >= doc_lens[b_idx]: # If the predicted start index is beyond valid tokens
+                    break
+                elif g_s <= p_s <= g_e: # The beginning of prediction is within the gold span
+                    overlapping_start_indices.append(p_s)
+                    if g_e <= p_e:
+                        overlapping_end_indices.append(g_e)
+                    else:
+                        overlapping_end_indices.append(p_e)
+                    which_gold_spans.append(span_num)
+                    found_overlapping_pred = True
+                elif g_s <= p_e <= g_e: # The end of the predicted span is within the gold span
+                    if g_s >= p_s:
+                        overlapping_start_indices.append(g_s)
+                    else:
+                        overlapping_start_indices.append(p_s)
+                    overlapping_end_indices.append(p_e)
+                    which_gold_spans.append(span_num)
+                    found_overlapping_pred = True
+            if not found_overlapping_pred:
+                unmatched_gold_mentions += 1
+
+        for (p_s, p_e) in p_mention_spans:
+            if p_s >= doc_lens[b_idx]:  # If the start index is beyond valid tokens
+                break
+            found_overlapping_pred = False
+            for (g_s, g_e) in g_mention_spans:
+                if g_s <= p_s <= g_e:  # The beginning of prediction is withing the gold span
+                    found_overlapping_pred = True
+                elif g_s <= p_e <= g_e:  # The end of the predicted span is within the gold span
+                    found_overlapping_pred = True
+            if not found_overlapping_pred:
+                extraneous_predicted_mentions += 1
+
+        b_overlapping_start_indices.append(overlapping_start_indices)
+        b_overlapping_end_indices.append(overlapping_end_indices)
+        b_which_gold_spans.append(which_gold_spans)
+
+    return unmatched_gold_mentions, extraneous_predicted_mentions, \
+            b_overlapping_start_indices, b_overlapping_end_indices, b_which_gold_spans
+
+def get_marked_mentions(document_id, mentions, docs,  max_seq_length, tokenizer, args):
+    # print("Num mention in this doc =", len(mentions[document_id]))
+    for m in mentions[document_id]:
+        assert m['content_document_id'] == document_id
+
+    context_text = docs[document_id]['text'].lower() if args.do_lower_case else docs[document_id]['text']
+    tokenized_text = [tokenizer.cls_token]
+    mention_start_markers = []
+    mention_end_markers = []
+    sequence_tags = []
+
+    # print(len(context_text))
+    # print(len(mentions[document_id]))
+    prev_end_index = 0
+    for m in mentions[document_id]:
+        start_index = m['start_index']
+        end_index = m['end_index']
+        # print(start_index, end_index)
+        if start_index >= len(context_text):
+            continue
+        extracted_mention = context_text[start_index: end_index]
+
+        # Text between the end of last mention and the beginning of current mention
+        prefix = context_text[prev_end_index: start_index]
+        # Tokenize prefix and add it to the tokenized text
+        prefix_tokens = tokenizer.tokenize(prefix)
+        tokenized_text += prefix_tokens
+        # The sequence tag for prefix tokens is 'O' , 'DNT' --> 'Do Not Tag'
+        for j, token in enumerate(prefix_tokens):
+            sequence_tags.append('O' if not token.startswith('##') else 'DNT')
+        # Add mention start marker to the tokenized text
+        mention_start_markers.append(len(tokenized_text))
+        # tokenized_text += ['[Ms]']
+        # Tokenize the mention and add it to the tokenized text
+        mention_tokens = tokenizer.tokenize(extracted_mention)
+        tokenized_text += mention_tokens
+        # Sequence tags for mention tokens -- first token B, other tokens I
+        for j, token in enumerate(mention_tokens):
+            if j == 0:
+                sequence_tags.append('B')
+            else:
+                sequence_tags.append('I' if not token.startswith('##') else 'DNT')
+
+        # Add mention end marker to the tokenized text
+        mention_end_markers.append(len(tokenized_text) - 1)
+        # tokenized_text += ['[Me]']
+        # Update prev_end_index
+        prev_end_index = end_index
+
+    suffix = context_text[prev_end_index:]
+    if len(suffix) > 0:
+        suffix_tokens = tokenizer.tokenize(suffix)
+        tokenized_text += suffix_tokens
+        # The sequence tag for suffix tokens is 'O'
+        for j, token in enumerate(suffix_tokens):
+            sequence_tags.append('O' if not token.startswith('##') else 'DNT')
+    tokenized_text += [tokenizer.sep_token]
+
+    return tokenized_text, mention_start_markers, mention_end_markers, sequence_tags
+
+def get_model(args):
+    args.model_type = args.model_type.lower()
+    config_class, _, tokenizer_class = MODEL_CLASSES[args.model_type]
+    config = config_class.from_pretrained(
+            args.config_name if args.config_name else args.model_name_or_path,
+            cache_dir=args.cache_dir if args.cache_dir else None,
+        )
+    tokenizer = tokenizer_class.from_pretrained(
+            args.tokenizer_name if args.tokenizer_name else args.model_name_or_path,
+            do_lower_case=args.do_lower_case,
+            cache_dir=args.cache_dir if args.cache_dir else None,
+        )
+
+    pretrained_bert = PreDualEncoder.from_pretrained(
+            args.model_name_or_path,
+            from_tf=bool(".ckpt" in args.model_name_or_path),
+            config=config,
+            cache_dir=args.cache_dir if args.cache_dir else None,
+        )
+
+        # Add new special tokens '[Ms]' and '[Me]' to tag mention
+    new_tokens = ['[Ms]', '[Me]']
+    num_added_tokens = tokenizer.add_tokens(new_tokens)
+    pretrained_bert.resize_token_embeddings(len(tokenizer))
+
+    model = DualEncoderBert(config, pretrained_bert)
+    return tokenizer_class,tokenizer,model  
