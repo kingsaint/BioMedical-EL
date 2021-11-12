@@ -269,10 +269,10 @@ def main(db_token,args=None):
     hvd_functions = []
     if args.do_train:
         hvd_functions.append(train_hvd)
-        parameters_to_log = parameters_to_log.add(TRAINING_ARGS)
+        parameters_to_log = parameters_to_log.union(TRAINING_ARGS)
     if args.do_eval:
         hvd_functions.append(eval_hvd)
-        parameters_to_log = parameters_to_log.add(EVAL_ARGS)
+        parameters_to_log = parameters_to_log.union(EVAL_ARGS)
         
     with mlflow.start_run() as run:
         for arg_name,arg_value in args.__dict__.items():
