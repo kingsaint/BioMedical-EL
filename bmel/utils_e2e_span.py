@@ -6,7 +6,6 @@ import logging
 from mpi4py import MPI
 import numpy as np
 from torch.utils.data.dataset import TensorDataset
-import glob
 logger = logging.getLogger(__name__)
 import torch
 from .modeling_bert import BertModel

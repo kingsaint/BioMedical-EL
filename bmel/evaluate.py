@@ -10,14 +10,14 @@ from torch.utils.data.distributed import DistributedSampler
 import torch
 import tqdm
 
-from .utils_e2e_span import  get_comm_magic, get_model, get_pretrained_model, get_trained_model, load_and_cache_examples
+from .utils_e2e_span import  get_comm_magic, get_trained_model, load_and_cache_examples
 
 
 import horovod.torch as hvd
 from sparkdl import HorovodRunner
 import mlflow
 
-from .utils_e2e_span import get_all_candidates, load_and_cache_examples, get_comm_magic, set_seed
+from .utils_e2e_span import get_all_candidates, load_and_cache_examples, get_comm_magic
 
 
 logger = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ def eval_hvd(args, prefix=""):
          # Pin GPU to local rank
             torch.cuda.set_device(0)
             #torch.cuda.set_device(hvd.local_rank())
-            
+
         model.to(device)
 
         eval_dataset, (all_entities, all_entity_token_ids, all_entity_token_masks), \
