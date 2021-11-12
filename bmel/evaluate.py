@@ -8,7 +8,7 @@ import pandas as pd
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 import torch
-import tqdm
+from tqdm import tqdm, trange
 
 from .utils_e2e_span import  get_comm_magic, get_trained_model, load_and_cache_examples
 
