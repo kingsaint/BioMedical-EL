@@ -772,7 +772,7 @@ def load_and_cache_examples(args, tokenizer, model=None):
                             )
     return dataset, (all_entities, all_entity_token_ids, all_entity_token_masks), (all_document_ids, all_label_candidate_ids)
 
-def get_all_candidates(args, model, all_entity_token_ids, all_entity_token_masks):
+def get_all_candidates(args, model, device, all_entity_token_ids, all_entity_token_masks):
     all_candidate_embeddings = []
     logger.info("INFO: Collecting all candidate embeddings.")
     with torch.no_grad():
@@ -780,8 +780,8 @@ def get_all_candidates(args, model, all_entity_token_ids, all_entity_token_masks
             logger.info(str(i))
             entity_tokens = all_entity_token_ids[i]
             entity_tokens_masks = all_entity_token_masks[i]
-            candidate_token_ids = torch.LongTensor([entity_tokens]).to(args.device)
-            candidate_token_masks = torch.LongTensor([entity_tokens_masks]).to(args.device)
+            candidate_token_ids = torch.LongTensor([entity_tokens]).to(device)
+            candidate_token_masks = torch.LongTensor([entity_tokens_masks]).to(device)
             if args.n_gpu > 1:
                 candidate_outputs = model.module.bert_candidate.bert(
                         input_ids=candidate_token_ids,
