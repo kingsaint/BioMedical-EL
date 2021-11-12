@@ -1002,14 +1002,14 @@ def get_base_model(args):
         comm.barrier()  # Make sure only the first process in distributed training will download model & vocab
         
 
-    args.model_type = args.model_type.lower()
-    config_class, _, tokenizer_class = MODEL_CLASSES[args.model_type]
+    args.base_model_type = args.base_model_type.lower()
+    config_class, _, tokenizer_class = MODEL_CLASSES[args.base_model_type]
     config = config_class.from_pretrained(
-            args.config_name if args.config_name else args.model_name_or_path,
+            args.config_name if args.config_name else args.base_model_name_or_path,
             cache_dir=args.cache_dir if args.cache_dir else None,
         )
     tokenizer = tokenizer_class.from_pretrained(
-            args.tokenizer_name if args.tokenizer_name else args.model_name_or_path,
+            args.tokenizer_name if args.tokenizer_name else args.base_model_name_or_path,
             do_lower_case=args.do_lower_case,
             cache_dir=args.cache_dir if args.cache_dir else None,
         )
