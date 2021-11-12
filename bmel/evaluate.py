@@ -10,7 +10,7 @@ from torch.utils.data.distributed import DistributedSampler
 import torch
 import tqdm
 
-from .utils_e2e_span import  get_comm_magic, load_and_cache_examples
+from .utils_e2e_span import  get_comm_magic, get_model, load_and_cache_examples
 
 
 import horovod.torch as hvd
@@ -22,7 +22,7 @@ from .utils_e2e_span import get_all_candidates, load_and_cache_examples, get_com
 
 logger = logging.getLogger(__name__)
 
-def eval_hvd(args, model, tokenizer, prefix=""):
+def eval_hvd(args, prefix=""):
     mlflow.set_tracking_uri("databricks")
     os.environ['DATABRICKS_HOST'] = "https://trend-prod.cloud.databricks.com/"
     os.environ['DATABRICKS_TOKEN'] = args.db_token
@@ -30,7 +30,13 @@ def eval_hvd(args, model, tokenizer, prefix=""):
         hvd.init()
         os.environ['CUDA_VISIBLE_DEVICES'] = str(hvd.local_rank())
         comm = get_comm_magic()
+        if hvd.rank()!=0:
+            comm.barrier()  # Make sure only the first process in distributed training will download model & vocab
+        
+        _, tokenizer, model = get_model(args)
 
+        if hvd.rank()==0:
+            comm.barrier()  # Make sure only the first process in distributed training will download model & vocab
         eval_dataset, (all_entities, all_entity_token_ids, all_entity_token_masks), \
         (all_document_ids, all_label_candidate_ids) = load_and_cache_examples(args, tokenizer)
         
