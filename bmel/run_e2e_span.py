@@ -8,28 +8,15 @@ import glob
 import logging
 import os
 import random
-import math
-
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange
 
-import pdb
-
 from transformers import (
     WEIGHTS_NAME,
     AdamW,
-    # BertConfig,
-    # BertForSequenceClassification,
-    # BertTokenizer,
-    DistilBertConfig,
-    DistilBertForSequenceClassification,
-    DistilBertTokenizer,
-    XLMConfig,
-    XLMForSequenceClassification,
-    XLMTokenizer,
     get_linear_schedule_with_warmup,
 )
 

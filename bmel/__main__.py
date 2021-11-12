@@ -3,6 +3,7 @@ import os
 from .utils_e2e_span import MODEL_CLASSES, set_seed
 from .train import train_hvd
 from .evaluate import eval_hvd
+from .configuration_bert import BertConfig
 from sparkdl import HorovodRunner
 import mlflow
 
@@ -282,3 +283,6 @@ def main(db_token,args=None):
         hr = HorovodRunner(np=args.n_gpu,driver_log_verbosity='all') 
         for hvd_function in hvd_functions:
             hr.run(hvd_function, args=args)
+
+if __name__ == "__main__":
+    main()
