@@ -10,7 +10,7 @@ from torch.utils.data.distributed import DistributedSampler
 import torch
 import tqdm
 
-from .utils_e2e_span import  get_comm_magic, get_model, load_and_cache_examples
+from .utils_e2e_span import  get_comm_magic, get_model, get_pretrained_model, get_trained_model, load_and_cache_examples
 
 
 import horovod.torch as hvd
@@ -30,13 +30,16 @@ def eval_hvd(args, prefix=""):
         hvd.init()
         os.environ['CUDA_VISIBLE_DEVICES'] = str(hvd.local_rank())
         comm = get_comm_magic()
-        if hvd.rank()!=0:
-            comm.barrier()  # Make sure only the first process in distributed training will download model & vocab
-        
-        _, tokenizer, model = get_model(args)
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        tokenizer,model = get_trained_model(args)
 
-        if hvd.rank()==0:
-            comm.barrier()  # Make sure only the first process in distributed training will download model & vocab
+        if device.type == 'cuda':
+         # Pin GPU to local rank
+            torch.cuda.set_device(0)
+            #torch.cuda.set_device(hvd.local_rank())
+            
+        model.to(device)
+
         eval_dataset, (all_entities, all_entity_token_ids, all_entity_token_masks), \
         (all_document_ids, all_label_candidate_ids) = load_and_cache_examples(args, tokenizer)
         

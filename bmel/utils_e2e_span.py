@@ -6,6 +6,7 @@ import logging
 from mpi4py import MPI
 import numpy as np
 from torch.utils.data.dataset import TensorDataset
+import glob
 logger = logging.getLogger(__name__)
 import torch
 from .modeling_bert import BertModel
@@ -997,7 +998,11 @@ def get_marked_mentions(document_id, mentions, docs,  max_seq_length, tokenizer,
 
     return tokenized_text, mention_start_markers, mention_end_markers, sequence_tags
 
-def get_model(args):
+def get_base_model(args):
+    if hvd.rank()!=0:
+        comm.barrier()  # Make sure only the first process in distributed training will download model & vocab
+        
+
     args.model_type = args.model_type.lower()
     config_class, _, tokenizer_class = MODEL_CLASSES[args.model_type]
     config = config_class.from_pretrained(
@@ -1011,8 +1016,8 @@ def get_model(args):
         )
 
     pretrained_bert = PreDualEncoder.from_pretrained(
-            args.model_name_or_path,
-            from_tf=bool(".ckpt" in args.model_name_or_path),
+            args.base_model_name_or_path,
+            from_tf=bool(".ckpt" in args.base_model_name_or_path),
             config=config,
             cache_dir=args.cache_dir if args.cache_dir else None,
         )
@@ -1022,5 +1027,13 @@ def get_model(args):
     num_added_tokens = tokenizer.add_tokens(new_tokens)
     pretrained_bert.resize_token_embeddings(len(tokenizer))
 
+    if hvd.rank()==0:
+            comm.barrier()  # Make sure only the first process in distributed training will download model & vocab
+
     model = DualEncoderBert(config, pretrained_bert)
     return tokenizer_class,tokenizer,model  
+def get_trained_model(args):
+    tokenizer_class,tokenizer,model = get_base_model(args)
+    model.load_state_dict(torch.load(os.path.join(args.output_dir, 'pytorch_model.bin')))
+    tokenizer = tokenizer_class.from_pretrained(args.output_dir)
+    return tokenizer,model

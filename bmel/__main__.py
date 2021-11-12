@@ -65,14 +65,14 @@ def get_args(dict_args = None):
         help="The input data dir. Should contain the .tsv files (or other data files) for the task.",
     )
     parser.add_argument(
-        "--model_type",
+        "--base_model_type",
         default=None,
         type=str,
         required=True,
         help="Model type selected in the list: " + ", ".join(MODEL_CLASSES.keys()),
     )
     parser.add_argument(
-        "--model_name_or_path",
+        "--base_model_name_or_path",
         default=None,
         type=str,
         required=True,
