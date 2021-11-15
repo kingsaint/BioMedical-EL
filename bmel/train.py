@@ -58,7 +58,7 @@ def train_hvd(args):
         hvd.init() 
         os.environ['CUDA_VISIBLE_DEVICES'] = str(hvd.local_rank())
         comm = get_comm_magic()
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        args.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         logging.basicConfig(
             format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
             datefmt="%m/%d/%Y %H:%M:%S",
@@ -67,7 +67,7 @@ def train_hvd(args):
         logger.warning(
             "Process rank: %s, device: %s, n_gpu: %s, distributed training: %s, 16-bits training: %s",
             hvd.rank(),
-            device,
+            args.device,
             args.n_gpu,
             bool(hvd.rank() != -1),
             args.fp16,
@@ -80,19 +80,19 @@ def train_hvd(args):
 
         
             
-        if device.type == 'cuda':
+        if args.device.type == 'cuda':
          # Pin GPU to local rank
             torch.cuda.set_device(0)
             #torch.cuda.set_device(hvd.local_rank())
         
-        model.to(device)  
+        model.to(args.device)  
         
         if args.use_random_candidates:
-            train_dataset, _, _= load_and_cache_examples(args,device, tokenizer)
+            train_dataset, _, _= load_and_cache_examples(args, tokenizer)
         elif args.use_hard_negatives or args.use_hard_and_random_negatives:
-            train_dataset, _, _ = load_and_cache_examples(args,device, tokenizer, model)
+            train_dataset, _, _ = load_and_cache_examples(args,tokenizer, model)
         else:
-            train_dataset, _, _ = load_and_cache_examples(args,device, tokenizer)
+            train_dataset, _, _ = load_and_cache_examples(args, tokenizer)
 
         args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
         train_sampler = DistributedSampler(train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
@@ -147,7 +147,7 @@ def train_hvd(args):
         
         for epoch_num in train_iterator:
             epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=hvd.rank()!=0)
-            train_one_epoch(args, device, tokenizer_class, tokenizer, model, optimizer, scheduler, global_step, epoch_num, epoch_iterator)
+            train_one_epoch(args, tokenizer_class, tokenizer, model, optimizer, scheduler, global_step, epoch_num, epoch_iterator)
             if args.use_random_candidates:
                 # New data loader at every epoch for random sampler if we use random negative samples
                 train_dataset, _, _= load_and_cache_examples(args, tokenizer)
@@ -162,9 +162,9 @@ def train_hvd(args):
             args.lambda_1 = args.lambda_1 - 1 / (epoch_num + 1)
             args.lambda_2 = args.lambda_2 + 1 / (epoch_num + 1)
 
-def train_one_epoch(args, device, tokenizer_class, tokenizer, model, optimizer, scheduler, global_step, epoch_num, epoch_iterator):
+def train_one_epoch(args, tokenizer_class, tokenizer, model, optimizer, scheduler, global_step, epoch_num, epoch_iterator):
     for step, batch in enumerate(epoch_iterator):
-        tr_loss_averaged_across_all_instances = train_one_batch(args, device, model, optimizer, scheduler, global_step, step, batch)
+        tr_loss_averaged_across_all_instances = train_one_batch(args, model, optimizer, scheduler, global_step, step, batch)
         if args.max_steps > 0 and global_step > args.max_steps:
             epoch_iterator.close()
             break
@@ -172,14 +172,14 @@ def train_one_epoch(args, device, tokenizer_class, tokenizer, model, optimizer, 
         mlflow.log_metrics({"averaged_training_loss_per_epoch":tr_loss_averaged_across_all_instances},epoch_num)
             #save checkpoint at end or after prescribed number of epochs
     if hvd.rank() == 0 and (epoch_num==args.num_train_epochs or epoch_num % args.save_epochs == 0):
-        save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,device,optimizer,scheduler)
+        save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,optimizer,scheduler)
             
             # New data loader for the next epoch
 
 
-def train_one_batch(args, device, model, optimizer, scheduler, global_step, step, batch):
+def train_one_batch(args,  model, optimizer, scheduler, global_step, step, batch):
     model.train()
-    ner_inputs, ned_inputs = get_inputs(args, device, model, batch)
+    ner_inputs, ned_inputs = get_inputs(args, model, batch)
     if args.ner:
         loss, _ = model.forward(**ner_inputs)
     elif args.alternate_batch:
@@ -214,8 +214,8 @@ def train_one_batch(args, device, model, optimizer, scheduler, global_step, step
         global_step += 1
     return tr_loss_averaged_across_all_instances
 
-def get_inputs(args, device, model, batch):
-    batch = tuple(t.to(device) for t in batch)
+def get_inputs(args, batch):
+    batch = tuple(t.to(args.device) for t in batch)
     ner_inputs = {"args": args,
                                 "mention_token_ids": batch[0],
                                 "mention_token_masks": batch[1],

@@ -227,7 +227,6 @@ def convert_examples_to_features(
     max_seq_length,
     tokenizer,
     args,
-    device,
     model=None,
 ):
 
@@ -261,7 +260,7 @@ def convert_examples_to_features(
     if args.use_hard_negatives or args.use_hard_and_random_negatives:
         if model is None:
             raise ValueError("`model` parameter cannot be None")
-        all_candidate_embeddings = get_all_candidate_embeddings(args,model,device,all_entity_token_ids,all_entity_token_masks)
+        all_candidate_embeddings = get_all_candidate_embeddings(args,model,all_entity_token_ids,all_entity_token_masks)
 
         # Indexing for faster search (using FAISS)
         # d = all_candidate_embeddings.size(1)
@@ -629,7 +628,7 @@ def convert_examples_to_features(
 
     return features, (all_entities, all_entity_token_ids, all_entity_token_masks), (all_document_ids, all_label_candidate_ids)
 
-def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,device,optimizer,scheduler):
+def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,optimizer,scheduler):
     # Saving best-practices: if you use defaults names for the model, you can reload it using from_pretrained()
     # Create output directory if needed
     epoch_num = epoch_num + 1 
@@ -661,7 +660,7 @@ def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,device,optimi
     if final:
         model.load_state_dict(torch.load(os.path.join(output_dir, 'pytorch_model.bin')))
         tokenizer = tokenizer_class.from_pretrained(output_dir)
-        model.to(device)
+        model.to(args.device)
     mlflow.log_artifacts(training_run_dir)    
     logger.info("Saved model checkpoint to %s", output_dir)
     
@@ -672,7 +671,7 @@ def set_seed(args):
     if args.n_gpu > 0:
         torch.cuda.manual_seed_all(args.seed)
 
-def load_and_cache_examples(args, device, tokenizer, model=None):
+def load_and_cache_examples(args, tokenizer, model=None):
     if hvd.rank() not in [-1, 0]:
         comm.barrier()  # Make sure only the first process in distributed training process the dataset, and the others will use the cache
 
@@ -703,7 +702,6 @@ def load_and_cache_examples(args, device, tokenizer, model=None):
             args.max_seq_length,
             tokenizer,
             args,
-            device,
             model,
         )
         if hvd.rank() in [-1, 0]:
@@ -752,7 +750,7 @@ def load_and_cache_examples(args, device, tokenizer, model=None):
                             )
     return dataset, (all_entities, all_entity_token_ids, all_entity_token_masks), (all_document_ids, all_label_candidate_ids)
 
-def get_all_candidate_embeddings(args, model, device, all_entity_token_ids, all_entity_token_masks):
+def get_all_candidate_embeddings(args, model, all_entity_token_ids, all_entity_token_masks):
     single_node_candidate_embeddings = []
     logger.info("INFO: Collecting all candidate embeddings.")
     with torch.no_grad():
@@ -761,8 +759,8 @@ def get_all_candidate_embeddings(args, model, device, all_entity_token_ids, all_
                 logger.info(str(i))
                 entity_tokens = all_entity_token_ids[i]
                 entity_tokens_masks = all_entity_token_masks[i]
-                candidate_token_ids = torch.LongTensor([entity_tokens]).to(device)
-                candidate_token_masks = torch.LongTensor([entity_tokens_masks]).to(device)
+                candidate_token_ids = torch.LongTensor([entity_tokens]).to(args.device)
+                candidate_token_masks = torch.LongTensor([entity_tokens_masks]).to(args.device)
                 if args.n_gpu > 1:
                     candidate_outputs = model.module.bert_candidate.bert(
                             input_ids=candidate_token_ids,
