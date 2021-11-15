@@ -17,7 +17,7 @@ import horovod.torch as hvd
 from sparkdl import HorovodRunner
 import mlflow
 
-from .utils_e2e_span import get_all_candidates, load_and_cache_examples, get_comm_magic
+from .utils_e2e_span import get_all_candidate_embeddings, load_and_cache_examples, get_comm_magic
 
 
 logger = logging.getLogger(__name__)
@@ -51,9 +51,10 @@ def eval_hvd(args, prefix=""):
         # Note that DistributedSampler samples randomly
         
         eval_sampler = DistributedSampler(eval_dataset, num_replicas=hvd.size(), rank=hvd.rank())
-        eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.per_gpu_train_batch_size)
+        eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size)
         
-        all_candidate_embeddings = get_all_candidates(args, model,device, all_entity_token_ids, all_entity_token_masks)
+        all_candidate_embeddings = get_all_candidate_embeddings(args, model,device, all_entity_token_ids, all_entity_token_masks)
+        all_candidate_embeddings = all_candidate_embeddings.unsqueeze(0).expand(args.eval_batch_size, -1, -1)
         # Eval!
         logger.info("***** Running evaluation {} *****".format(prefix))
         logger.info("  Num examples = %d", len(eval_dataset))

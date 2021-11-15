@@ -227,6 +227,7 @@ def convert_examples_to_features(
     max_seq_length,
     tokenizer,
     args,
+    device,
     model=None,
 ):
 
@@ -260,29 +261,7 @@ def convert_examples_to_features(
     if args.use_hard_negatives or args.use_hard_and_random_negatives:
         if model is None:
             raise ValueError("`model` parameter cannot be None")
-        logger.info("INFO: Building index of the candidate embeddings ...")
-        # Gather all candidate embeddings for hard negative mining
-        all_candidate_embeddings = []
-        with torch.no_grad():
-            # Forward pass through the candidate encoder of the dual encoder
-            for i, (entity_tokens, entity_tokens_masks) in enumerate(
-                    zip(all_entity_token_ids, all_entity_token_masks)):
-                candidate_token_ids = torch.LongTensor([entity_tokens]).to(args.device)
-                candidate_token_masks = torch.LongTensor([entity_tokens_masks]).to(args.device)
-                if hasattr(model, "module"):
-                    candidate_outputs = model.module.bert_candidate.bert(
-                        input_ids=candidate_token_ids,
-                        attention_mask=candidate_token_masks,
-                    )
-                else:
-                    candidate_outputs = model.bert_candidate.bert(
-                        input_ids=candidate_token_ids,
-                        attention_mask=candidate_token_masks,
-                    )
-                candidate_embedding = candidate_outputs[1]
-                all_candidate_embeddings.append(candidate_embedding)
-
-        all_candidate_embeddings = torch.cat(all_candidate_embeddings, dim=0)
+        all_candidate_embeddings = get_all_candidate_embeddings(args,model,device,all_entity_token_ids,all_entity_token_masks)
 
         # Indexing for faster search (using FAISS)
         # d = all_candidate_embeddings.size(1)
@@ -693,7 +672,7 @@ def set_seed(args):
     if args.n_gpu > 0:
         torch.cuda.manual_seed_all(args.seed)
 
-def load_and_cache_examples(args, tokenizer, model=None):
+def load_and_cache_examples(args, device, tokenizer, model=None):
     if hvd.rank() not in [-1, 0]:
         comm.barrier()  # Make sure only the first process in distributed training process the dataset, and the others will use the cache
 
@@ -724,6 +703,7 @@ def load_and_cache_examples(args, tokenizer, model=None):
             args.max_seq_length,
             tokenizer,
             args,
+            device,
             model,
         )
         if hvd.rank() in [-1, 0]:
@@ -772,33 +752,35 @@ def load_and_cache_examples(args, tokenizer, model=None):
                             )
     return dataset, (all_entities, all_entity_token_ids, all_entity_token_masks), (all_document_ids, all_label_candidate_ids)
 
-def get_all_candidates(args, model, device, all_entity_token_ids, all_entity_token_masks):
-    all_candidate_embeddings = []
+def get_all_candidate_embeddings(args, model, device, all_entity_token_ids, all_entity_token_masks):
+    single_node_candidate_embeddings = []
     logger.info("INFO: Collecting all candidate embeddings.")
     with torch.no_grad():
         for i, _ in enumerate(all_entity_token_ids):
-            logger.info(str(i))
-            entity_tokens = all_entity_token_ids[i]
-            entity_tokens_masks = all_entity_token_masks[i]
-            candidate_token_ids = torch.LongTensor([entity_tokens]).to(device)
-            candidate_token_masks = torch.LongTensor([entity_tokens_masks]).to(device)
-            if args.n_gpu > 1:
-                candidate_outputs = model.module.bert_candidate.bert(
-                        input_ids=candidate_token_ids,
-                        attention_mask=candidate_token_masks,
-                    )
-            else:
-                candidate_outputs = model.bert_candidate.bert(
-                        input_ids=candidate_token_ids,
-                        attention_mask=candidate_token_masks,
-                    )
-            candidate_embedding = candidate_outputs[1]
-            all_candidate_embeddings.append(candidate_embedding)
+            if i % hvd.size() == hvd.rank():
+                logger.info(str(i))
+                entity_tokens = all_entity_token_ids[i]
+                entity_tokens_masks = all_entity_token_masks[i]
+                candidate_token_ids = torch.LongTensor([entity_tokens]).to(device)
+                candidate_token_masks = torch.LongTensor([entity_tokens_masks]).to(device)
+                if args.n_gpu > 1:
+                    candidate_outputs = model.module.bert_candidate.bert(
+                            input_ids=candidate_token_ids,
+                            attention_mask=candidate_token_masks,
+                        )
+                else:
+                    candidate_outputs = model.bert_candidate.bert(
+                            input_ids=candidate_token_ids,
+                            attention_mask=candidate_token_masks,
+                        )
+                candidate_embedding = candidate_outputs[1]
+                single_node_candidate_embeddings.append(candidate_embedding)
                 #logger.info(str(candidate_embedding))
-    all_candidate_embeddings = torch.cat(all_candidate_embeddings, dim=0)
+    single_node_candidate_embeddings = torch.cat(single_node_candidate_embeddings, dim=0)
+    all_candidate_embeddings = horovod.torch.allgather(single_node_candidate_embeddings)
     logger.info("INFO: Collected all candidate embeddings.")
     print("Tensor size = ", all_candidate_embeddings.size())
-    all_candidate_embeddings = all_candidate_embeddings.unsqueeze(0).expand(args.eval_batch_size, -1, -1)
+    return all_candidate_embeddings
 
 def get_mention_spans(mention_token_ids, predicted_tags, doc_lens,tokenizer):
         b_size = predicted_tags.size(0)
