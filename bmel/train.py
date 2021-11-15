@@ -88,11 +88,11 @@ def train_hvd(args):
         model.to(device)  
         
         if args.use_random_candidates:
-            train_dataset, _, _= load_and_cache_examples(args, tokenizer)
+            train_dataset, _, _= load_and_cache_examples(args,device, tokenizer)
         elif args.use_hard_negatives or args.use_hard_and_random_negatives:
-            train_dataset, _, _ = load_and_cache_examples(args, tokenizer, model)
+            train_dataset, _, _ = load_and_cache_examples(args,device, tokenizer, model)
         else:
-            train_dataset, _, _ = load_and_cache_examples(args, tokenizer)
+            train_dataset, _, _ = load_and_cache_examples(args,device, tokenizer)
 
         args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
         train_sampler = DistributedSampler(train_dataset, num_replicas=hvd.size(), rank=hvd.rank())

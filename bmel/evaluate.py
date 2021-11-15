@@ -41,7 +41,7 @@ def eval_hvd(args, prefix=""):
         model.to(device)
 
         eval_dataset, (all_entities, all_entity_token_ids, all_entity_token_masks), \
-        (all_document_ids, all_label_candidate_ids) = load_and_cache_examples(args, tokenizer)
+        (all_document_ids, all_label_candidate_ids) = load_and_cache_examples(args, device, tokenizer)
         
         logger.info("Evaluation Dataset Created")
         if not os.path.exists(args.output_dir) and hvd.rank==0:
@@ -51,7 +51,7 @@ def eval_hvd(args, prefix=""):
         # Note that DistributedSampler samples randomly
         
         eval_sampler = DistributedSampler(eval_dataset, num_replicas=hvd.size(), rank=hvd.rank())
-        eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size)
+        eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.per_gpu_eval_batch_size)
         
         all_candidate_embeddings = get_all_candidate_embeddings(args, model,device, all_entity_token_ids, all_entity_token_masks)
         all_candidate_embeddings = all_candidate_embeddings.unsqueeze(0).expand(args.eval_batch_size, -1, -1)

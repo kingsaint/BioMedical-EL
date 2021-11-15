@@ -777,7 +777,7 @@ def get_all_candidate_embeddings(args, model, device, all_entity_token_ids, all_
                 single_node_candidate_embeddings.append(candidate_embedding)
                 #logger.info(str(candidate_embedding))
     single_node_candidate_embeddings = torch.cat(single_node_candidate_embeddings, dim=0)
-    all_candidate_embeddings = horovod.torch.allgather(single_node_candidate_embeddings)
+    all_candidate_embeddings = hvd.allgather(single_node_candidate_embeddings)
     logger.info("INFO: Collected all candidate embeddings.")
     print("Tensor size = ", all_candidate_embeddings.size())
     return all_candidate_embeddings
@@ -1013,6 +1013,7 @@ def get_base_model(args):
 
     model = DualEncoderBert(config, pretrained_bert)
     return tokenizer_class,tokenizer,model  
+
 def get_trained_model(args):
     tokenizer_class,tokenizer,model = get_base_model(args)
     model.load_state_dict(torch.load(os.path.join(args.output_dir, 'pytorch_model.bin')))
