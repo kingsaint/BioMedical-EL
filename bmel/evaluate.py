@@ -84,10 +84,10 @@ def eval_hvd(args, prefix=""):
                 if hvd.rank()==0:
                     for file_type in ["gold","pred"]:
                         all_files = glob.glob(os.path.join(gamma_dir, f"{file_type}_[0-9]*.csv"))
-                        df_from_each_file = (pd.read_csv(f, sep='\t',index_col=False) for f in all_files)
+                        df_from_each_file = (pd.read_csv(f, sep='\t',header=None,index_col=False) for f in all_files)
                         df_merged = pd.concat(df_from_each_file)
                         all_together_file_path= os.path.join(gamma_dir,f"{file_type}_ALL.csv")
-                        df_merged.to_csv(all_together_file_path,sep="\t",header=None,index=False,na_rep='NA')
+                        df_merged.to_csv(all_together_file_path,sep="\t",index=False,na_rep='NA')
                 mlflow.log_artifacts(gamma_dir)
         mlflow.log_artifacts(args.output_dir)
 
