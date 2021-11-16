@@ -72,12 +72,13 @@ def eval_hvd(args, prefix=""):
                 num_mention_processed = 0
                 for batch in tqdm(eval_dataloader, desc="Evaluating"):
                     model.eval()
-                    eval_one_batch(args, model, all_entities, all_document_ids, all_label_candidate_ids, all_candidate_embeddings, single_process_gold_file, single_process_pred_file, num_mention_processed, batch)
+                    num_mention_processed += eval_one_batch(args, model, all_entities, all_document_ids, all_label_candidate_ids, all_candidate_embeddings, single_process_gold_file, single_process_pred_file, num_mention_processed, batch)
+
                 comm.barrier()
                 ##ONCE ALL BATCHES ARE FINISHED, COMBINE THEM INTO A SINGLE CSV USING THE ROOT NODE.
                 if hvd.rank()==0:
                     for file_type in ["gold","pred"]:
-                        all_files = glob.glob(os.path.join(gamma_dir, "gold_*.csv"))
+                        all_files = glob.glob(os.path.join(gamma_dir, f"{file_type}_*.csv"))
                         df_from_each_file = (pd.read_csv(f, sep=',') for f in all_files)
                         df_merged = pd.concat(df_from_each_file, ignore_index=True)
                         all_together_file_path= os.path.join(gamma_dir,f"{file_type}_ALL_.csv")
@@ -174,5 +175,7 @@ def eval_one_batch(args, model, all_entities, all_document_ids, all_label_candid
                             + '\t' + 'NA' + '\n'
             single_process_pred_file.write(pred_write)
 
-        num_mention_processed += num_mentions
+        return num_mentions
+
+        
 
