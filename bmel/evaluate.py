@@ -59,7 +59,7 @@ def eval_hvd(args, prefix=""):
         logger.info("  Num examples = %d", len(eval_dataset))
         logger.info("  Batch size = %d", args.eval_batch_size)
         for gamma in np.linspace(.1,.9,10):
-            with mlflow.start_run(nested=True):
+            with mlflow.start_run(experiment_id=args.experiment_id,nested=True):
                 args.gamma = gamma
                 gamma_dir = os.path.join(args.output_dir,f'gamma_{gamma}')
                 single_process_gold_path = os.path.join(gamma_dir,f'gold_{hvd.rank()}.csv')
@@ -80,7 +80,7 @@ def eval_hvd(args, prefix=""):
                         all_together_file_path= os.path.join(gamma_dir,f"{file_type}_ALL_.csv")
                         df_merged.to_csv(all_together_file_path)
                 mlflow.log_artifacts(gamma_dir)
-            mlflow.log_artifacts(args.output_dir)
+        mlflow.log_artifacts(args.output_dir)
 
 def eval_one_batch(args, model, all_entities, all_document_ids, all_label_candidate_ids, all_candidate_embeddings, single_process_gold_file, single_process_pred_file, num_mention_processed, batch):
     batch = tuple(t.to(args.device) for t in batch)
