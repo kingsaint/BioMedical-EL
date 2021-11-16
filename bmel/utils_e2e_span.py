@@ -14,7 +14,6 @@ from .configuration_bert import BertConfig
 from .modeling_e2e_span import DualEncoderBert, PreDualEncoder
 
 import horovod.torch as hvd
-from sparkdl import HorovodRunner
 import mlflow
 
 

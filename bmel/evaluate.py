@@ -14,14 +14,13 @@ from .utils_e2e_span import  get_comm_magic, get_trained_model, load_and_cache_e
 
 
 import horovod.torch as hvd
-from sparkdl import HorovodRunner
 import mlflow
 
 from .utils_e2e_span import get_all_candidate_embeddings, load_and_cache_examples, get_comm_magic
 
 
 logger = logging.getLogger(__name__)
-
+##DISTRIBUTED EVAL WITH MORE THAN 1 GPU DOES NOT WORK
 def eval_hvd(args, prefix=""):
     mlflow.set_tracking_uri("databricks")
     os.environ['DATABRICKS_HOST'] = "https://trend-prod.cloud.databricks.com/"
@@ -49,7 +48,7 @@ def eval_hvd(args, prefix=""):
         comm.barrier()
         args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
         # Note that DistributedSampler samples randomly
-        
+        # Evaluation only supports args.per_gpu_eval_batch_size=1 n.gpu=1
         eval_sampler = DistributedSampler(eval_dataset, num_replicas=hvd.size(), rank=hvd.rank())
         eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.per_gpu_eval_batch_size)
         
@@ -59,25 +58,28 @@ def eval_hvd(args, prefix=""):
         logger.info("***** Running evaluation {} *****".format(prefix))
         logger.info("  Num examples = %d", len(eval_dataset))
         logger.info("  Batch size = %d", args.eval_batch_size)
-        single_process_gold_path = os.path.join(args.output_dir,f'gold_{hvd.rank()}.csv')
-        single_process_pred_path = os.path.join(args.output_dir,f'pred_{hvd.rank()}.csv')
-        single_process_gold_file = open(single_process_gold_path, 'w+')
-        single_process_pred_file = open(single_process_pred_path, 'w+')
-
-        num_mention_processed = 0
-        for batch in tqdm(eval_dataloader, desc="Evaluating"):
-            model.eval()
-            eval_one_batch(args, model, all_entities, all_document_ids, all_label_candidate_ids, all_candidate_embeddings, single_process_gold_file, single_process_pred_file, num_mention_processed, batch)
-        comm.barrier()
-        ##ONCE ALL BATCHES ARE FINISHED, COMBINE THEM INTO A SINGLE CSV USING THE ROOT NODE.
-        if hvd.rank==0:
-            for file_type in ["gold","pred"]:
-                all_files = glob.glob(os.path.join(args.data_dir, "gold_*.csv"))
-                df_from_each_file = (pd.read_csv(f, sep=',') for f in all_files)
-                df_merged = pd.concat(df_from_each_file, ignore_index=True)
-                all_together_file_path= os.path.join(args.output_dir,f"{file_type}_ALL.csv")
-                df_merged.to_csv(all_together_file_path)
-        mlflow.log_artificats(args.output_dir)
+        for gamma in np.linspace(.1,.9,10):
+            with mlflow.start_run(nested=True):
+                args.gamma = gamma
+                gamma_dir = os.path.join(args.output_dir,f'gamma_{gamma}')
+                single_process_gold_path = os.path.join(gamma_dir,f'gold_{hvd.rank()}.csv')
+                single_process_pred_path = os.path.join(gamma_dir,f'pred_{hvd.rank()}.csv')
+                single_process_gold_file = open(single_process_gold_path, 'w+')
+                single_process_pred_file = open(single_process_pred_path, 'w+')
+                num_mention_processed = 0
+                for batch in tqdm(eval_dataloader, desc="Evaluating"):
+                    model.eval()
+                    eval_one_batch(args, model, all_entities, all_document_ids, all_label_candidate_ids, all_candidate_embeddings, single_process_gold_file, single_process_pred_file, num_mention_processed, batch)
+                comm.barrier()
+                ##ONCE ALL BATCHES ARE FINISHED, COMBINE THEM INTO A SINGLE CSV USING THE ROOT NODE.
+                if hvd.rank==0:
+                    for file_type in ["gold","pred"]:
+                        all_files = glob.glob(os.path.join(gamma_dir, "gold_*.csv"))
+                        df_from_each_file = (pd.read_csv(f, sep=',') for f in all_files)
+                        df_merged = pd.concat(df_from_each_file, ignore_index=True)
+                        all_together_file_path= os.path.join(gamma_dir,f"{file_type}_ALL_.csv")
+                        df_merged.to_csv(all_together_file_path)
+            mlflow.log_artificats(args.output_dir)
 
 def eval_one_batch(args, model, all_entities, all_document_ids, all_label_candidate_ids, all_candidate_embeddings, single_process_gold_file, single_process_pred_file, num_mention_processed, batch):
     batch = tuple(t.to(args.device) for t in batch)
