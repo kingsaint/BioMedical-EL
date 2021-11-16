@@ -59,12 +59,12 @@ def eval_hvd(args, prefix=""):
         logger.info("  Num examples = %d", len(eval_dataset))
         logger.info("  Batch size = %d", args.eval_batch_size)
         for gamma in np.linspace(.1,.9,10):
+            args.gamma = gamma
+            gamma_dir = os.path.join(args.output_dir,f'gamma_{gamma}')
+            if not os.path.exists(gamma_dir) and hvd.rank()==0:
+                os.makedirs(gamma_dir)
+            comm.barrier()
             with mlflow.start_run(experiment_id=args.experiment_id,nested=True):
-                args.gamma = gamma
-                gamma_dir = os.path.join(args.output_dir,f'gamma_{gamma}')
-                if not os.path.exists(gamma_dir) and hvd.rank()==0:
-                    os.makedirs(gamma_dir)
-                comm.barrier()
                 single_process_gold_path = os.path.join(gamma_dir,f'gold_{hvd.rank()}.csv')
                 single_process_pred_path = os.path.join(gamma_dir,f'pred_{hvd.rank()}.csv')
                 single_process_gold_file = open(single_process_gold_path, 'w+')
@@ -75,7 +75,7 @@ def eval_hvd(args, prefix=""):
                     eval_one_batch(args, model, all_entities, all_document_ids, all_label_candidate_ids, all_candidate_embeddings, single_process_gold_file, single_process_pred_file, num_mention_processed, batch)
                 comm.barrier()
                 ##ONCE ALL BATCHES ARE FINISHED, COMBINE THEM INTO A SINGLE CSV USING THE ROOT NODE.
-                if hvd.rank==0:
+                if hvd.rank()==0:
                     for file_type in ["gold","pred"]:
                         all_files = glob.glob(os.path.join(gamma_dir, "gold_*.csv"))
                         df_from_each_file = (pd.read_csv(f, sep=',') for f in all_files)
