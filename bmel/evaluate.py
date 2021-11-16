@@ -73,11 +73,12 @@ def eval_hvd(args, prefix=""):
                 num_mention_processed = 0
                 for batch in tqdm(eval_dataloader, desc="Evaluating"):
                     model.eval()
-                    num_mentions_processed_per_batch = eval_one_batch(args, model, all_entities, all_document_ids, all_label_candidate_ids, all_candidate_embeddings, single_process_gold_file, single_process_pred_file, num_mention_processed, batch)
-                    num_mention_processed += num_mentions_processed_per_batch
+                    num_mentions_processed_in_batch = eval_one_batch(args, model, all_entities, all_document_ids, all_label_candidate_ids, all_candidate_embeddings, single_process_gold_file, single_process_pred_file, num_mention_processed, batch)
+                    num_mention_processed += num_mentions_processed_in_batch
 
                 comm.barrier()
                 ##ONCE ALL BATCHES ARE FINISHED, COMBINE THEM INTO A SINGLE CSV USING THE ROOT NODE.
+                logger.info(num_mention_processed)
                 if hvd.rank()==0:
                     for file_type in ["gold","pred"]:
                         all_files = glob.glob(os.path.join(gamma_dir, f"{file_type}_*.csv"))
