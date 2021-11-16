@@ -753,7 +753,7 @@ def get_all_candidate_embeddings(args, model, all_entity_token_ids, all_entity_t
     single_node_candidate_embeddings = []
     logger.info("INFO: Collecting all candidate embeddings.")
     with torch.no_grad():
-        for i, _ in enumerate(all_entity_token_ids):
+        for i, _ in enumerate(all_entity_token_ids[20]):
             if i % hvd.size() == hvd.rank():
                 logger.info(str(i))
                 entity_tokens = all_entity_token_ids[i]
