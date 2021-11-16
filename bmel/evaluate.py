@@ -75,7 +75,6 @@ def eval_hvd(args, prefix=""):
                     model.eval()
                     num_mentions_processed_per_batch = eval_one_batch(args, model, all_entities, all_document_ids, all_label_candidate_ids, all_candidate_embeddings, single_process_gold_file, single_process_pred_file, num_mention_processed, batch)
                     num_mention_processed += num_mentions_processed_per_batch
-                    print(num_mention_processed)
 
                 comm.barrier()
                 ##ONCE ALL BATCHES ARE FINISHED, COMBINE THEM INTO A SINGLE CSV USING THE ROOT NODE.
@@ -127,13 +126,13 @@ def eval_one_batch(args, model, all_entities, all_document_ids, all_label_candid
                                 }
 
         _, logits = model(**mention_inputs)
-        logger.info(str(logits))
+        #logger.info(str(logits))
         preds = logits.detach().cpu().numpy()
             # out_label_ids = batch[6]
             # out_label_ids = out_label_ids.reshape(-1).detach().cpu().numpy()
             
         sorted_preds = np.flip(np.argsort(preds), axis=1)
-        logger.info(str(sorted_preds))
+        #logger.info(str(sorted_preds))
         predicted_entities = []
         for i, sorted_pred in enumerate(sorted_preds):
             predicted_entity_idx = sorted_preds[i][0]
@@ -143,7 +142,7 @@ def eval_one_batch(args, model, all_entities, all_document_ids, all_label_candid
             # Write the gold entities
         num_mentions = batch[9].detach().cpu().numpy()[0]
         document_ids = all_document_ids[num_mention_processed:num_mention_processed + num_mentions]
-        logger.info(document_ids)
+        #logger.info(document_ids)
         assert all(doc_id == document_ids[0] for doc_id in document_ids)
         gold_mention_start_indices = batch[7].detach().cpu().numpy()[0][:num_mentions]
         gold_mention_end_indices = batch[8].detach().cpu().numpy()[0][:num_mentions]
