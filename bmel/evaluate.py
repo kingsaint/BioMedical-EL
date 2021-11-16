@@ -49,7 +49,7 @@ def eval_hvd(args, prefix=""):
         args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
         # Note that DistributedSampler samples randomly
         # Evaluation only supports args.per_gpu_eval_batch_size=1 n.gpu=1
-        eval_sampler = DistributedSampler(eval_dataset, num_replicas=hvd.size(), rank=hvd.rank())
+        eval_sampler = SequentialSampler(eval_dataset, num_replicas=hvd.size(), rank=hvd.rank())
         eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.per_gpu_eval_batch_size)
         
         all_candidate_embeddings = get_all_candidate_embeddings(args, model, all_entity_token_ids, all_entity_token_masks)
