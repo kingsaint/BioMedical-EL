@@ -61,7 +61,7 @@ def eval_hvd(args, prefix=""):
         for gamma in np.linspace(.1,.9,10):
             args.gamma = gamma
             logger.info("Evaluating gamma %.2f", args.gamma)
-            gamma_dir = os.path.join(args.output_dir,f'gamma_{gamma}')
+            gamma_dir = os.path.join(args.output_dir,'gammas/gamma_%.2f'.format(args.gamma))
             if not os.path.exists(gamma_dir) and hvd.rank()==0:
                 os.makedirs(gamma_dir)
             comm.barrier()
@@ -84,7 +84,7 @@ def eval_hvd(args, prefix=""):
                         all_files = glob.glob(os.path.join(gamma_dir, f"{file_type}_*.csv"))
                         df_from_each_file = (pd.read_csv(f, sep=',') for f in all_files)
                         df_merged = pd.concat(df_from_each_file, ignore_index=True)
-                        all_together_file_path= os.path.join(gamma_dir,f"{file_type}_ALL_.csv")
+                        all_together_file_path= os.path.join(gamma_dir,f"{file_type}_ALL.csv")
                         df_merged.to_csv(all_together_file_path)
                 mlflow.log_artifacts(gamma_dir)
         mlflow.log_artifacts(args.output_dir)
