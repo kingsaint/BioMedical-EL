@@ -262,7 +262,7 @@ def main(db_token,args=None):
         )
     mlflow.set_experiment(args.experiment_name)
     experiment = mlflow.get_experiment_by_name(args.experiment_name)
-    args.experiment = experiment.experiment_id
+    args.experiment_id = experiment.experiment_id
     # Set seed
     set_seed(args)
     if not args.do_train and not args.do_eval:
