@@ -66,7 +66,7 @@ def eval_hvd(args, prefix=""):
                 os.makedirs(gamma_dir)
             comm.barrier()
             with mlflow.start_run(experiment_id=args.experiment_id,nested=True):
-                mlflow.log_param({"gamma":args.gamma})
+                mlflow.log_param("gamma",args.gamma)
                 single_process_gold_path = os.path.join(gamma_dir,f'gold_{hvd.rank()}.csv')
                 single_process_pred_path = os.path.join(gamma_dir,f'pred_{hvd.rank()}.csv')
                 single_process_gold_file = open(single_process_gold_path, 'w+')
