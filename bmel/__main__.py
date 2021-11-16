@@ -260,7 +260,8 @@ def main(db_token,args=None):
                 args.output_dir
             )
         )
-    experiment = mlflow.set_experiment(args.experiment_name)
+    mlflow.set_experiment(args.experiment_name)
+    experiment = mlflow.get_experiment_by_name(args.experiment_name)
     args.experiment = experiment.experiment_id
     # Set seed
     set_seed(args)
