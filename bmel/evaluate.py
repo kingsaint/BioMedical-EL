@@ -79,7 +79,8 @@ def eval_hvd(args, prefix=""):
                         df_merged = pd.concat(df_from_each_file, ignore_index=True)
                         all_together_file_path= os.path.join(gamma_dir,f"{file_type}_ALL_.csv")
                         df_merged.to_csv(all_together_file_path)
-            mlflow.log_artificats(args.output_dir)
+                mlflow.log_artifacts(gamma_dir)
+            mlflow.log_artifacts(args.output_dir)
 
 def eval_one_batch(args, model, all_entities, all_document_ids, all_label_candidate_ids, all_candidate_embeddings, single_process_gold_file, single_process_pred_file, num_mention_processed, batch):
     batch = tuple(t.to(args.device) for t in batch)
