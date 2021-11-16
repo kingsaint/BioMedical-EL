@@ -61,7 +61,7 @@ def eval_hvd(args, prefix=""):
         for gamma in np.linspace(.1,.9,10):
             args.gamma = gamma
             logger.info("Evaluating gamma %.2f", args.gamma)
-            gamma_dir = os.path.join(args.output_dir,'evaluation/gamma_%.2f'.format(args.gamma))
+            gamma_dir = os.path.join(args.output_dir,'evaluation2/gamma_{:.2f}'.format(args.gamma))
             if not os.path.exists(gamma_dir) and hvd.rank()==0:
                 os.makedirs(gamma_dir)
             comm.barrier()
@@ -83,11 +83,11 @@ def eval_hvd(args, prefix=""):
                 logger.info(num_mention_processed)
                 if hvd.rank()==0:
                     for file_type in ["gold","pred"]:
-                        all_files = glob.glob(os.path.join(gamma_dir, f"{file_type}_*.csv"))
-                        df_from_each_file = (pd.read_csv(f, sep=',') for f in all_files)
-                        df_merged = pd.concat(df_from_each_file,ignore_index=True)
+                        all_files = glob.glob(os.path.join(gamma_dir, f"{file_type}_[0-9]*.csv"))
+                        df_from_each_file = (pd.read_csv(f, sep='\t',index_col=False) for f in all_files)
+                        df_merged = pd.concat(df_from_each_file)
                         all_together_file_path= os.path.join(gamma_dir,f"{file_type}_ALL.csv")
-                        df_merged.to_csv(all_together_file_path,index=False)
+                        df_merged.to_csv(all_together_file_path,sep="\t",index=False)
                 mlflow.log_artifacts(gamma_dir)
         mlflow.log_artifacts(args.output_dir)
 
@@ -95,10 +95,10 @@ def eval_one_batch(args, model, all_entities, all_document_ids, all_label_candid
     batch = tuple(t.to(args.device) for t in batch)
     with torch.no_grad():
         doc_input = {"args": args,
-                        "mention_token_ids": batch[0],
-                        "mention_token_masks": batch[1],
-                        "mode": 'ner',
-                        }
+                     "mention_token_ids": batch[0],
+                    "mention_token_masks": batch[1],
+                    "mode": 'ner',
+                    }
         pred_mention_start_indices, pred_mention_end_indices, pred_mention_span_scores, last_hidden_states = model.forward(**doc_input)
         pred_mention_span_probs = torch.sigmoid(pred_mention_span_scores)
         spans_after_prunning = torch.where(pred_mention_span_probs >= args.gamma)
