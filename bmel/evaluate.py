@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 
 from torch.utils.data import DataLoader
-from torch.utils.data.distributed import DistributedSampler
 import torch
 from torch.utils.data.sampler import SequentialSampler
 from tqdm import tqdm, trange
@@ -60,6 +59,7 @@ def eval_hvd(args, prefix=""):
         logger.info("  Num examples = %d", len(eval_dataset))
         logger.info("  Batch size = %d", args.eval_batch_size)
         for gamma in np.linspace(.1,.9,10):
+            logger.info("Evaluating gamma %d", args.gamma)
             args.gamma = gamma
             gamma_dir = os.path.join(args.output_dir,f'gamma_{gamma}')
             if not os.path.exists(gamma_dir) and hvd.rank()==0:
