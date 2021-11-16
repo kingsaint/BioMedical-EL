@@ -59,8 +59,8 @@ def eval_hvd(args, prefix=""):
         logger.info("  Num examples = %d", len(eval_dataset))
         logger.info("  Batch size = %d", args.eval_batch_size)
         for gamma in np.linspace(.1,.9,10):
-            logger.info("Evaluating gamma %d", args.gamma)
             args.gamma = gamma
+            logger.info("Evaluating gamma %d", args.gamma)
             gamma_dir = os.path.join(args.output_dir,f'gamma_{gamma}')
             if not os.path.exists(gamma_dir) and hvd.rank()==0:
                 os.makedirs(gamma_dir)
