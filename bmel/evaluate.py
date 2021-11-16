@@ -140,7 +140,7 @@ def eval_one_batch(args, model, all_entities, all_document_ids, all_label_candid
             # Write the gold entities
         num_mentions = batch[9].detach().cpu().numpy()[0]
         document_ids = all_document_ids[num_mention_processed:num_mention_processed + num_mentions]
-        logger.info(document_ids.shape())
+        logger.info(document_ids)
         assert all(doc_id == document_ids[0] for doc_id in document_ids)
         gold_mention_start_indices = batch[7].detach().cpu().numpy()[0][:num_mentions]
         gold_mention_end_indices = batch[8].detach().cpu().numpy()[0][:num_mentions]
