@@ -587,17 +587,20 @@ def load_and_cache_examples(
                             seq_tag_ids=seq_tag_ids,
                             )
             )
-
-                    # Save the hard negatives
+        logger.info("Saving features into cached file %s", cached_features_file)
         if args.use_hard_and_random_negatives:
+            mention_hard_negatives_list = comm.gather(mention_hard_negatives)
+            mention_hard_negatives ={}
+            for dictionary in mention_hard_negatives_list:
+                mention_hard_negatives.update(dictionary)
             with open(os.path.join(args.data_dir, 'mention_hard_negatives.json'), 'w+') as f_hn:
                 json.dump(mention_hard_negatives, f_hn)
             f_hn.close()
-        logger.info("Saving features into cached file %s", cached_features_file)
-        features=comm.gather(features,rank=0)#NEED TO FLATTEN
-        all_document_ids =comm.gather(all_document_ids,rank=0)#NEED TO FLATTEN
-        all_label_candidate_ids = comm.gather(all_label_candidate_ids,rank=0)#NEED TO FLATTEN
-        num_longer_docs = comm.reduce(num_longer_docs)
+        #gather across all nodes
+        features=[features for node_features in comm.allgather(features) for features in node_features]#NEED TO FLATTEN
+        all_document_ids =[document_ids for node_document_ids in comm.allgather(all_document_ids) for document_ids in node_document_ids]#NEED TO FLATTEN
+        all_label_candidate_ids = [candidate_ids for node_candidate_ids in comm.allgather(all_label_candidate_ids) for candidate_ids in node_candidate_ids]#NEED TO FLATTEN
+        num_longer_docs = comm.allreduce(num_longer_docs,op=MPI.SUM)
         print(num_longer_docs)
         if hvd.rank()==0:
             torch.save(features, cached_features_file)
@@ -611,11 +614,6 @@ def load_and_cache_examples(
                     np.array(all_document_ids))
             np.save(os.path.join(args.data_dir, 'all_label_candidate_ids.npy'),
             np.array(all_label_candidate_ids))
-        comm.barrier()
-        if hvd.rank!=0:
-            features = torch.load(cached_features_file)
-            all_document_ids = np.load(os.path.join(args.data_dir, 'all_document_ids.npy'))
-            all_label_candidate_ids = np.load(os.path.join(args.data_dir, 'all_label_candidate_ids.npy'))
     else:
         logger.info("Loading features from cached file %s", cached_features_file)
         features = torch.load(cached_features_file)
