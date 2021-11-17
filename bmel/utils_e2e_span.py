@@ -939,6 +939,7 @@ def get_marked_mentions(document_id, mentions, docs,  max_seq_length, tokenizer,
     return tokenized_text, mention_start_markers, mention_end_markers, sequence_tags
 
 def get_base_model(args):
+    comm = get_comm_magic()
     if hvd.rank()!=0:
         comm.barrier()  # Make sure only the first process in distributed training will download model & vocab
         
@@ -968,7 +969,7 @@ def get_base_model(args):
     pretrained_bert.resize_token_embeddings(len(tokenizer))
 
     if hvd.rank()==0:
-            comm.barrier()  # Make sure only the first process in distributed training will download model & vocab
+        comm.barrier()  # Make sure only the first process in distributed training will download model & vocab
 
     model = DualEncoderBert(config, pretrained_bert)
     return tokenizer_class,tokenizer,model  
