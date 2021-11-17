@@ -710,7 +710,7 @@ def get_all_candidate_embeddings(args, model, all_entity_token_ids, all_entity_t
         node_entity_token_ids = partition(all_entity_token_ids,hvd.size(),hvd.rank())
         node_entity_token_masks = partition(all_entity_token_masks,hvd.size(),hvd.rank())
         for i, _ in enumerate(node_entity_token_ids):
-            logger.info(all_entity_token_ids.index(node_entity_token_ids(i)))
+            logger.info(all_entity_token_ids.index(node_entity_token_ids[i]))
             entity_tokens = node_entity_token_ids[i]
             entity_tokens_masks = node_entity_token_masks[i]
             candidate_token_ids = torch.LongTensor([entity_tokens]).to(args.device)
