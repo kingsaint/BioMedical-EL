@@ -959,8 +959,9 @@ def get_base_model(args):
 def get_trained_model(args):
     tokenizer_class,tokenizer,model = get_base_model(args)
     model.load_state_dict(torch.load(os.path.join(args.output_dir, 'pytorch_model.bin')))
+    all_candidate_embeddings = torch.load(torch.load(os.path.join(args.output_dir, 'all_candidate_embeddings.pt')))
     tokenizer = tokenizer_class.from_pretrained(args.output_dir)
-    return tokenizer,model
+    return tokenizer,model,all_candidate_embeddings
 
 def partition(a, n, i):
     #a=list

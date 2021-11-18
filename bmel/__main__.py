@@ -6,6 +6,7 @@ from .evaluate import eval_hvd
 from .configuration_bert import BertConfig
 from sparkdl import HorovodRunner
 import mlflow
+import glob
 
 ALL_MODELS = sum(
     (tuple(conf.pretrained_config_archive_map.keys()) for conf in [BertConfig]), ()
@@ -265,28 +266,37 @@ def main(db_token,args=None):
     set_seed(args)
     if not args.do_train and not args.do_eval:
         raise Exception("Pick at least one of do_train or do_eval.")
-    parameters_to_log = set()
-    hvd_functions = []
-    if args.do_train:
-        hvd_functions.append(train_hvd)
-        parameters_to_log = parameters_to_log.union(TRAINING_ARGS)
-        args.experiment_name = os.path.join(args.experiment_dir,"training")
-    if args.do_eval:
-        hvd_functions.append(eval_hvd)
-        parameters_to_log = parameters_to_log.union(EVAL_ARGS)
-        args.experiment_name = os.path.join(args.experiment_dir,"evaluation")
     mlflow.set_experiment(args.experiment_name)
     experiment = mlflow.get_experiment_by_name(args.experiment_name)
-    args.experiment_id = experiment.experiment_id    
-    with mlflow.start_run() as run:
-        for arg_name,arg_value in args.__dict__.items():
-            if arg_name in parameters_to_log:
-                mlflow.log_param(arg_name,arg_value)
-        args.active_run_id = run.info.run_id
-        args.db_token = db_token
-        hr = HorovodRunner(np=args.n_gpu,driver_log_verbosity='all') 
-        for hvd_function in hvd_functions:
-            hr.run(hvd_function, args=args)
+    args.experiment_id = experiment.experiment_id
+    if args.do_train:
+        args.experiment_name = os.path.join(args.experiment_dir,"training")
+        with mlflow.start_run() as run:
+            for arg_name,arg_value in args.__dict__.items():
+                if arg_name in TRAINING_ARGS:
+                    mlflow.log_param(arg_name,arg_value)
+            args.active_run_id = run.info.run_id
+            args.db_token = db_token
+            hr = HorovodRunner(np=args.n_gpu,driver_log_verbosity='all') 
+            hr.run(train_hvd, args=args)
+    if args.do_eval:
+        args.experiment_name = os.path.join(args.experiment_dir,"evaluation")
+        checkpoints = list(
+                os.path.dirname(c) for c in sorted(glob.glob(args.output_dir + "/**/" + "checkpoint**/", recursive=True))
+            )
+        for checkpoint in checkpoints:
+            args.output_dir = checkpoint
+            with mlflow.start_run() as run:
+                for arg_name,arg_value in args.__dict__.items():
+                    if arg_name in EVAL_ARGS:
+                        mlflow.log_param(arg_name,arg_value)
+                args.active_run_id = run.info.run_id
+                args.db_token = db_token
+                hr = HorovodRunner(np=args.n_gpu,driver_log_verbosity='all') 
+                hr.run(train_hvd, args=args)
+
+    
+
 
 if __name__ == "__main__":
     main()
