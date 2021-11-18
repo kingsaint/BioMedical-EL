@@ -178,7 +178,7 @@ def train_one_epoch(args, tokenizer_class, tokenizer, model, optimizer, schedule
 
 def train_one_batch(args,  model, optimizer, scheduler, global_step, step, batch):
     model.train()
-    ner_inputs, ned_inputs = get_inputs(args, model, batch)
+    ner_inputs, ned_inputs = get_inputs(args, batch)
     if args.ner:
         loss, _ = model.forward(**ner_inputs)
     elif args.alternate_batch:
