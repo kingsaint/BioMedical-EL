@@ -281,6 +281,7 @@ def main(db_token,args=None):
             hr = HorovodRunner(np=args.n_gpu,driver_log_verbosity='all') 
             hr.run(train_hvd, args=args)
     if args.do_eval:
+        
         args.experiment_name = os.path.join(args.experiment_dir,"evaluation")
         mlflow.set_experiment(args.experiment_name)
         experiment = mlflow.get_experiment_by_name(args.experiment_name)
@@ -288,8 +289,9 @@ def main(db_token,args=None):
         checkpoints = list(
                 os.path.dirname(c) for c in sorted(glob.glob(args.output_dir + "/**/" + "checkpoint**/", recursive=True))
             )
+        if not args.eval_all_checkpoints:
+            checkpoints = [checkpoints[-1]]
         for checkpoint in checkpoints:
-            print(checkpoint)
             args.output_dir = checkpoint
             with mlflow.start_run() as run:
                 for arg_name,arg_value in args.__dict__.items():

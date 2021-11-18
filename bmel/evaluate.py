@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 import torch
 from torch.utils.data.sampler import SequentialSampler
 from tqdm import tqdm, trange
+from neleval.__main__ import APPS as neleval_apps
 
 from .utils_e2e_span import  get_comm_magic, get_trained_model, load_and_cache_examples
 
@@ -18,7 +19,10 @@ import mlflow
 
 from .utils_e2e_span import get_all_candidate_embeddings, load_and_cache_examples, get_comm_magic
 
-
+EVALUATOR_CLASS = neleval_apps[0]
+MEASURES=['overlap-maxmax::span+kbid',
+           'strong_all_match'
+         ]
 logger = logging.getLogger(__name__)
 ##DISTRIBUTED EVAL WITH MORE THAN 1 GPU DOES NOT WORK
 def eval_hvd(args, prefix=""):
@@ -80,13 +84,27 @@ def eval_hvd(args, prefix=""):
                 comm.barrier()
             ##ONCE ALL BATCHES ARE FINISHED, COMBINE THEM INTO A SINGLE CSV USING THE ROOT NODE.
                 logger.info(num_mention_processed)
+                all_together_file_paths = {}
                 if hvd.rank()==0:
                     for file_type in ["gold","pred"]:
                         all_files = glob.glob(os.path.join(gamma_dir, f"{file_type}_[0-9]*.csv"))
                         df_from_each_file = (pd.read_csv(f, sep='\t',header=None,index_col=False) for f in all_files)
                         df_merged = pd.concat(df_from_each_file)
-                        all_together_file_path= os.path.join(gamma_dir,f"{file_type}_ALL.csv")
-                        df_merged.to_csv(all_together_file_path,sep="\t",header=False,index=False,na_rep='NA')
+                        all_together_file_paths[file_type]= os.path.join(gamma_dir,f"{file_type}_ALL.csv")
+                        df_merged.to_csv(all_together_file_paths[file_type],sep="\t",header=False,index=False,na_rep='NA')
+
+                    evaluator = EVALUATOR_CLASS(all_together_file_paths["pred"],
+                                                all_together_file_paths["gold"],
+                                                measures=MEASURES)
+                    results = evaluator()
+                    for measure_name,metrics in results.items():
+                        for metric_name,metric in metrics:
+                            full_metric_name = measure_name + "_" + metric_name
+                            mlflow.log_metric(full_metric_name,metric)
+
+                
+
+
                 mlflow.log_artifacts(gamma_dir)
         mlflow.log_artifacts(args.output_dir)
 

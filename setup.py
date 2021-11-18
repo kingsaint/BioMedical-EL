@@ -8,6 +8,7 @@ setup(
   install_requires=['transformers',
                     'torch',
                     'mpi4py',
+                    'git+https://github.com/wikilinks/neleval'
                     'boto3'
                    ]
 )
