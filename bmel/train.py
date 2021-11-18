@@ -204,8 +204,9 @@ def train_one_batch(args,  model, optimizer, scheduler, global_step, step, batch
 
     else:
         loss.backward()
+    tr_loss_averaged_across_all_instances = hvd.allreduce(loss).item()
+    
     if hvd.rank() == 0:
-        tr_loss_averaged_across_all_instances = hvd.allreduce(loss).item()
         mlflow.log_metrics({"averaged_training_loss_per_step":tr_loss_averaged_across_all_instances},step)
 
     if (step + 1) % args.gradient_accumulation_steps == 0:
