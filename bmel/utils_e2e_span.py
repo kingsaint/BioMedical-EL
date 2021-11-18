@@ -436,6 +436,12 @@ def load_and_cache_examples(
                         candidates_2.append(m_hard_candidates)
 
             elif args.do_eval:
+                if args.use_all_candidates:
+                    all_candidate_embedding_path = os.path.join(args.output_dir, 'all_candidate_embeddings.pt')
+                    if os.path.exists(all_candidate_embedding_path):
+                        all_candidate_embeddings =torch.load(all_candidate_embedding_path)
+                    else:
+                        all_candidate_embeddings = get_all_candidate_embeddings(args, model, all_entity_token_ids, all_entity_token_masks)
                 for m_idx, m in enumerate(mentions[document_id]):
                     m_candidates = []
 
@@ -462,6 +468,7 @@ def load_and_cache_examples(
                 candidate_token_masks_1 = None
                 candidate_token_ids_2 = None
                 candidate_token_masks_2 = None
+
             else:
                 candidate_token_ids_1 = [[tokenizer.pad_token_id] * max_entity_len] * (args.num_max_mentions * args.num_candidates)
                 candidate_token_masks_1 = [[0]*max_entity_len] * (args.num_max_mentions * args.num_candidates)
@@ -645,7 +652,7 @@ def load_and_cache_examples(
                             all_num_mentions,
                             all_seq_tag_ids,
                             )
-    return dataset, (all_entities, all_entity_token_ids, all_entity_token_masks,all_candidate_embeddings), (all_document_ids, all_label_candidate_ids)
+    return dataset, (all_entities, all_entity_token_ids, all_entity_token_masks,all_candidate_embeddi), (all_document_ids, all_label_candidate_ids)
 
 def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,optimizer,scheduler,all_candidate_embeddings):
     # Saving best-practices: if you use defaults names for the model, you can reload it using from_pretrained()
