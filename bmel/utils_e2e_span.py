@@ -635,10 +635,10 @@ def load_and_cache_examples(
     all_candidate_token_masks_2 = torch.tensor([f.candidate_token_masks_2 if f.candidate_token_masks_2 is not None else [0] for f in features], dtype=torch.long)
     all_labels = torch.tensor([f.label_ids for f in features], dtype=torch.long)
     #print([len(f.mention_end_indices) for f in features])
-    all_mention_start_indices = torch.tensor([f.mention_start_indices for f in features], dtype=torch.long)[:10]
-    all_mention_end_indices = torch.tensor([f.mention_end_indices for f in features], dtype=torch.long)[:10]
-    all_num_mentions = torch.tensor([f.num_mentions for f in features], dtype=torch.long)[:10]
-    all_seq_tag_ids = torch.tensor([f.seq_tag_ids for f in features], dtype=torch.long)[:10]
+    all_mention_start_indices = torch.tensor([f.mention_start_indices for f in features], dtype=torch.long)
+    all_mention_end_indices = torch.tensor([f.mention_end_indices for f in features], dtype=torch.long)
+    all_num_mentions = torch.tensor([f.num_mentions for f in features], dtype=torch.long)
+    all_seq_tag_ids = torch.tensor([f.seq_tag_ids for f in features], dtype=torch.long)
 
     dataset = TensorDataset(all_mention_token_ids,
                             all_mention_token_masks,
