@@ -270,7 +270,7 @@ def main(db_token,args=None):
     if args.do_train:
         args.experiment_name = os.path.join(args.experiment_dir,"training")
         mlflow.set_experiment(args.experiment_name)
-        experiment = mlflow.get_experiment_by_name(args.experiment_dir)
+        experiment = mlflow.get_experiment_by_name(args.experiment_name)
         args.experiment_id = experiment.experiment_id
         with mlflow.start_run() as run:
             for arg_name,arg_value in args.__dict__.items():
@@ -283,7 +283,7 @@ def main(db_token,args=None):
     if args.do_eval:
         args.experiment_name = os.path.join(args.experiment_dir,"evaluation")
         mlflow.set_experiment(args.experiment_name)
-        experiment = mlflow.get_experiment_by_name(args.experiment_dir)
+        experiment = mlflow.get_experiment_by_name(args.experiment_name)
         args.experiment_id = experiment.experiment_id
         checkpoints = list(
                 os.path.dirname(c) for c in sorted(glob.glob(args.output_dir + "/**/" + "checkpoint**/", recursive=True))
