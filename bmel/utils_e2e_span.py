@@ -577,15 +577,7 @@ def load_and_cache_examples(
                             )
             )
         logger.info("Saving features into cached file %s", cached_features_file)
-        if args.use_hard_and_random_negatives:
-            mention_hard_negatives_list = comm.gather(mention_hard_negatives)
-            if hvd.rank() == 0:
-                mention_hard_negatives ={}
-                for dictionary in mention_hard_negatives_list:
-                    mention_hard_negatives.update(dictionary)
-                with open(os.path.join(args.data_dir, 'mention_hard_negatives.json'), 'w+') as f_hn:
-                    json.dump(mention_hard_negatives, f_hn)
-                f_hn.close()
+        
         #gather across all nodes
         features=[features for node_features in comm.allgather(features) for features in node_features]#FLATTENED
         all_document_ids =[document_ids for node_document_ids in comm.allgather(all_document_ids) for document_ids in node_document_ids]#FLATTENED
@@ -604,6 +596,15 @@ def load_and_cache_examples(
                     np.array(all_document_ids))
             np.save(os.path.join(args.data_dir, 'all_label_candidate_ids.npy'),
             np.array(all_label_candidate_ids))
+            if args.use_hard_and_random_negatives:
+
+                mention_hard_negatives_list = comm.gather(mention_hard_negatives)
+                mention_hard_negatives ={}
+                for dictionary in mention_hard_negatives_list:
+                    mention_hard_negatives.update(dictionary)
+                with open(os.path.join(args.data_dir, 'mention_hard_negatives.json'), 'w+') as f_hn:
+                    json.dump(mention_hard_negatives, f_hn)
+                f_hn.close()
     else:
         logger.info("Loading features from cached file %s", cached_features_file)
         features = torch.load(cached_features_file)
