@@ -141,8 +141,7 @@ def train_hvd(args):
         tr_loss, logging_loss = 0.0, 0.0
         model.zero_grad()
         train_iterator = trange(
-            epochs_trained, int(args.num_train_epochs), desc="Epoch", disable=hvd.rank()!=0
-        )
+            epochs_trained, int(args.num_train_epochs), desc="Epoch", disable=hvd.rank()!=0)
         set_seed(args)  # Added here for reproductibility
         
         for epoch_num in train_iterator:
