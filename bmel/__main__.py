@@ -18,12 +18,6 @@ EVAL_ARGS = {
                     "max_mention_length",
                     "max_seq_length",
                     "per_gpu_train_batch_size",
-                    "num_candidates",
-                    "num_max_mentions",
-                    "use_tfidf_candidates",
-                    "use_random_candidates",
-                    "use_hard_negatives",
-                    "use_hard_and_random_negatives",
                     "use_all_candidates"
                     "ner_and_ned",
                     "seed"
@@ -48,9 +42,9 @@ TRAINING_ARGS = {
                     "use_random_candidates",
                     "use_hard_negatives",
                     "use_hard_and_random_negatives",
-                    "ner",
                     "ner_and_ned",
-                    "seed"
+                    "seed",
+                    "overwrite_cache"
                 }  
 def get_args(dict_args = None):
 
