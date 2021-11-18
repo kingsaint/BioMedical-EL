@@ -712,16 +712,10 @@ def get_all_candidate_embeddings(args, model, all_entity_token_ids, all_entity_t
             entity_tokens_masks = node_entity_token_masks[i]
             candidate_token_ids = torch.LongTensor([entity_tokens]).to(args.device)
             candidate_token_masks = torch.LongTensor([entity_tokens_masks]).to(args.device)
-            if args.n_gpu > 1:
-                candidate_outputs = model.module.bert_candidate.bert(
-                        input_ids=candidate_token_ids,
-                        attention_mask=candidate_token_masks,
-                    )
-            else:
-                candidate_outputs = model.bert_candidate.bert(
-                        input_ids=candidate_token_ids,
-                        attention_mask=candidate_token_masks,
-                    )
+            candidate_outputs = model.bert_candidate.bert(
+                    input_ids=candidate_token_ids,
+                    attention_mask=candidate_token_masks,
+                )
             candidate_embedding = candidate_outputs[1]
             single_node_candidate_embeddings.append(candidate_embedding)
             #logger.info(str(candidate_embedding))
