@@ -644,7 +644,7 @@ def load_and_cache_examples(
                             all_num_mentions,
                             all_seq_tag_ids,
                             )
-    return dataset, (all_entities, all_entity_token_ids, all_entity_token_masks,all_candidate_embeddings), (all_document_ids, all_label_candidate_ids)
+    return dataset, (all_entities, all_entity_token_ids, all_entity_token_masks), (all_document_ids, all_label_candidate_ids)
 
 def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,optimizer,scheduler,all_candidate_embeddings):
     # Saving best-practices: if you use defaults names for the model, you can reload it using from_pretrained()
@@ -959,9 +959,8 @@ def get_base_model(args):
 def get_trained_model(args):
     tokenizer_class,tokenizer,model = get_base_model(args)
     model.load_state_dict(torch.load(os.path.join(args.output_dir, 'pytorch_model.bin')))
-    all_candidate_embeddings = torch.load(torch.load(os.path.join(args.output_dir, 'all_candidate_embeddings.pt')))
     tokenizer = tokenizer_class.from_pretrained(args.output_dir)
-    return tokenizer,model,all_candidate_embeddings
+    return tokenizer,model
 
 def partition(a, n, i):
     #a=list

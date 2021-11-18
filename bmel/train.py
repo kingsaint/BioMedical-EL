@@ -154,10 +154,9 @@ def train_hvd(args):
                 train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.per_gpu_train_batch_size)
             elif args.use_hard_negatives or args.use_hard_and_random_negatives:
                 # New data loader at every epoch for hard negative sampler if we use hard negative mining
-                train_dataset, candidates, _= load_and_cache_examples(args, tokenizer, model)
+                train_dataset, (_,_,_,all_candidate_embeddings), _= load_and_cache_examples(args, tokenizer, model)
                 train_sampler = DistributedSampler(train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
                 train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.per_gpu_train_batch_size)
-                all_candidate_embeddings = candidates[3]
             if hvd.rank() == 0:    
                 mlflow.log_metrics({"averaged_training_loss_per_epoch":tr_loss_averaged_across_all_instances},epoch_num)
                 #save checkpoint at end or after prescribed number of epochs

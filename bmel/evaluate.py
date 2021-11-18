@@ -30,7 +30,7 @@ def eval_hvd(args, prefix=""):
         os.environ['CUDA_VISIBLE_DEVICES'] = str(hvd.local_rank())
         comm = get_comm_magic()
         args.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        tokenizer,model,all_candidate_embeddings = get_trained_model(args)
+        tokenizer,model= get_trained_model(args)
 
         if args.device.type == 'cuda':
          # Pin GPU to local rank
@@ -39,7 +39,7 @@ def eval_hvd(args, prefix=""):
 
         model.to(args.device)
 
-        eval_dataset, (all_entities, all_entity_token_ids, all_entity_token_masks), \
+        eval_dataset, (all_entities, all_entity_token_ids, all_entity_token_masks,all_candidate_embeddings), \
         (all_document_ids, all_label_candidate_ids) = load_and_cache_examples(args, tokenizer)
         
         logger.info("Evaluation Dataset Created")
@@ -51,7 +51,10 @@ def eval_hvd(args, prefix=""):
         # Evaluation only supports args.per_gpu_eval_batch_size=1 n.gpu=1
         eval_sampler = SequentialSampler(eval_dataset)
         eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.per_gpu_eval_batch_size)
-        if all_candidate_embeddings == None:
+        all_candidate_embedding_path = os.path.join(args.output_dir, 'all_candidate_embeddings.pt')
+        if os.path.exists(all_candidate_embedding_path):
+            all_candidate_embeddings =torch.load(all_candidate_embedding_path)
+        else:
             all_candidate_embeddings = get_all_candidate_embeddings(args, model, all_entity_token_ids, all_entity_token_masks)
         all_candidate_embeddings = all_candidate_embeddings.unsqueeze(0).expand(args.eval_batch_size, -1, -1)
         # Eval!
