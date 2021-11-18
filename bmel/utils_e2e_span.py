@@ -236,7 +236,7 @@ def load_and_cache_examples(
     )
     if not os.path.exists(cached_features_file) or args.overwrite_cache:
         mentions, docs, entities = load_data(args.data_dir, mode)
-        all_entities = list(entities.keys())[:10]
+        all_entities = list(entities.keys())
         all_entity_token_ids = []
         all_entity_token_masks = []
         for c_idx, c in enumerate(all_entities):
@@ -626,14 +626,14 @@ def load_and_cache_examples(
 
 
     # Convert to Tensors and build dataset
-    all_mention_token_ids = torch.tensor([f.mention_token_ids for f in features], dtype=torch.long)[:10]
+    all_mention_token_ids = torch.tensor([f.mention_token_ids for f in features], dtype=torch.long)
     #reduced dataset size to 10 for debugging
-    all_mention_token_masks = torch.tensor([f.mention_token_masks for f in features], dtype=torch.long)[:10]
-    all_candidate_token_ids_1 = torch.tensor([f.candidate_token_ids_1 if f.candidate_token_ids_1 is not None else [0] for f in features], dtype=torch.long)[:10]
-    all_candidate_token_masks_1 = torch.tensor([f.candidate_token_masks_1 if f.candidate_token_masks_1 is not None else [0] for f in features], dtype=torch.long)[:10]
-    all_candidate_token_ids_2 = torch.tensor([f.candidate_token_ids_2 if f.candidate_token_ids_2 is not None else [0] for f in features], dtype=torch.long)[:10]
-    all_candidate_token_masks_2 = torch.tensor([f.candidate_token_masks_2 if f.candidate_token_masks_2 is not None else [0] for f in features], dtype=torch.long)[:10]
-    all_labels = torch.tensor([f.label_ids for f in features], dtype=torch.long)[:10]
+    all_mention_token_masks = torch.tensor([f.mention_token_masks for f in features], dtype=torch.long)
+    all_candidate_token_ids_1 = torch.tensor([f.candidate_token_ids_1 if f.candidate_token_ids_1 is not None else [0] for f in features], dtype=torch.long)
+    all_candidate_token_masks_1 = torch.tensor([f.candidate_token_masks_1 if f.candidate_token_masks_1 is not None else [0] for f in features], dtype=torch.long)
+    all_candidate_token_ids_2 = torch.tensor([f.candidate_token_ids_2 if f.candidate_token_ids_2 is not None else [0] for f in features], dtype=torch.long)
+    all_candidate_token_masks_2 = torch.tensor([f.candidate_token_masks_2 if f.candidate_token_masks_2 is not None else [0] for f in features], dtype=torch.long)
+    all_labels = torch.tensor([f.label_ids for f in features], dtype=torch.long)
     #print([len(f.mention_end_indices) for f in features])
     all_mention_start_indices = torch.tensor([f.mention_start_indices for f in features], dtype=torch.long)[:10]
     all_mention_end_indices = torch.tensor([f.mention_end_indices for f in features], dtype=torch.long)[:10]
