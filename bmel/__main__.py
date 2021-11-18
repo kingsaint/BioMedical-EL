@@ -266,11 +266,12 @@ def main(db_token,args=None):
     set_seed(args)
     if not args.do_train and not args.do_eval:
         raise Exception("Pick at least one of do_train or do_eval.")
-    mlflow.set_experiment(args.experiment_name)
-    experiment = mlflow.get_experiment_by_name(args.experiment_name)
-    args.experiment_id = experiment.experiment_id
+
     if args.do_train:
         args.experiment_name = os.path.join(args.experiment_dir,"training")
+        mlflow.set_experiment(args.experiment_name)
+        experiment = mlflow.get_experiment_by_name(args.experiment_dir)
+        args.experiment_id = experiment.experiment_id
         with mlflow.start_run() as run:
             for arg_name,arg_value in args.__dict__.items():
                 if arg_name in TRAINING_ARGS:
@@ -281,6 +282,9 @@ def main(db_token,args=None):
             hr.run(train_hvd, args=args)
     if args.do_eval:
         args.experiment_name = os.path.join(args.experiment_dir,"evaluation")
+        mlflow.set_experiment(args.experiment_name)
+        experiment = mlflow.get_experiment_by_name(args.experiment_dir)
+        args.experiment_id = experiment.experiment_id
         checkpoints = list(
                 os.path.dirname(c) for c in sorted(glob.glob(args.output_dir + "/**/" + "checkpoint**/", recursive=True))
             )
