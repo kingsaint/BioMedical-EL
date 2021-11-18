@@ -20,9 +20,9 @@ import mlflow
 from .utils_e2e_span import get_all_candidate_embeddings, load_and_cache_examples, get_comm_magic
 
 EVALUATOR_CLASS = neleval_apps[0]
-MEASURES=['overlap-maxmax::span+kbid',
-           'strong_all_match'
-         ]
+MEASURES={'overlap-maxmax::span+kbid':"overlapping",
+           'strong_all_match':"strict"
+}
 logger = logging.getLogger(__name__)
 ##DISTRIBUTED EVAL WITH MORE THAN 1 GPU DOES NOT WORK
 def eval_hvd(args, prefix=""):
@@ -98,8 +98,9 @@ def eval_hvd(args, prefix=""):
                                                 measures=MEASURES)
                     results = evaluator()
                     for measure_name,metrics in results.items():
+                        easy_measure_name = MEASURES[measure_name]
                         for metric_name,metric in metrics.items():
-                            full_metric_name = measure_name + "_" + metric_name
+                            full_metric_name = easy_measure_name + "_" + metric_name
                             mlflow.log_metric(full_metric_name,metric)
 
                 
