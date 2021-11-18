@@ -232,7 +232,7 @@ def get_args(dict_args = None):
     parser.add_argument("--local_rank", type=int, default=-1, help="For distributed training: local_rank")
     parser.add_argument("--server_ip", type=str, default="", help="For distant debugging.")
     parser.add_argument("--server_port", type=str, default="", help="For distant debugging.")
-    parser.add_argument("--experiment_name", type=str, default="", help="To log parameters and metrics.")
+    parser.add_argument("--experiment_dir", type=str, default="", help="To log parameters and metrics.")
     list_args = []
     if dict_args != None:
       for key,value in dict_args.items():
@@ -270,11 +270,11 @@ def main(db_token,args=None):
     if args.do_train:
         hvd_functions.append(train_hvd)
         parameters_to_log = parameters_to_log.union(TRAINING_ARGS)
-        args.experiment_name = os.path.join(args.experiment_name,"training")
+        args.experiment_name = os.path.join(args.experiment_dir,"training")
     if args.do_eval:
         hvd_functions.append(eval_hvd)
         parameters_to_log = parameters_to_log.union(EVAL_ARGS)
-        args.experiment_name = os.path.join(args.experiment_name,"evaluation")
+        args.experiment_name = os.path.join(args.experiment_dir,"evaluation")
     mlflow.set_experiment(args.experiment_name)
     experiment = mlflow.get_experiment_by_name(args.experiment_name)
     args.experiment_id = experiment.experiment_id    
