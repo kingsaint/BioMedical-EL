@@ -137,8 +137,6 @@ def train_hvd(args):
 
         global_step = 0
         epochs_trained = 0
-        steps_trained_in_current_epoch = 0
-        tr_loss, logging_loss = 0.0, 0.0
         model.zero_grad()
         train_iterator = trange(
             epochs_trained, int(args.num_train_epochs), desc="Epoch", disable=hvd.rank()!=0)
@@ -205,7 +203,7 @@ def train_one_batch(args,  model, optimizer, scheduler, global_step, step, batch
     else:
         loss.backward()
     tr_loss_averaged_across_all_instances = hvd.allreduce(loss).item()
-    
+
     if hvd.rank() == 0:
         mlflow.log_metrics({"averaged_training_loss_per_step":tr_loss_averaged_across_all_instances},step)
 
