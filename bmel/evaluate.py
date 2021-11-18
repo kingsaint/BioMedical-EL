@@ -64,7 +64,7 @@ def eval_hvd(args, prefix=""):
         for gamma in np.linspace(.1,.9,10):
             args.gamma = gamma
             logger.info("Evaluating gamma %.2f", args.gamma)
-            gamma_dir = os.path.join(args.output_dir,'evaluation4/gamma_{:.2f}'.format(args.gamma))
+            gamma_dir = os.path.join(args.output_dir,'evaluation/gamma_{:.2f}'.format(args.gamma))
             if not os.path.exists(gamma_dir) and hvd.rank()==0:
                 os.makedirs(gamma_dir)
             comm.barrier()
