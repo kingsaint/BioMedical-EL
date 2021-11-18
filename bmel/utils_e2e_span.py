@@ -652,7 +652,7 @@ def load_and_cache_examples(
                             all_num_mentions,
                             all_seq_tag_ids,
                             )
-    return dataset, (all_entities, all_entity_token_ids, all_entity_token_masks,all_candidate_embeddi), (all_document_ids, all_label_candidate_ids)
+    return dataset, (all_entities, all_entity_token_ids, all_entity_token_masks,all_candidate_embeddings), (all_document_ids, all_label_candidate_ids)
 
 def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,optimizer,scheduler,all_candidate_embeddings):
     # Saving best-practices: if you use defaults names for the model, you can reload it using from_pretrained()
