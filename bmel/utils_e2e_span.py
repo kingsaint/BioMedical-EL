@@ -224,6 +224,7 @@ def load_and_cache_examples(
     tokenizer, 
     model=None
 ):  
+
     max_seq_length=args.max_seq_length
     mode = 'train' if args.do_train else 'test'
     # Load data features from cache or dataset file
@@ -263,29 +264,17 @@ def load_and_cache_examples(
             if model is None:
                 raise ValueError("`model` parameter cannot be None")
             all_candidate_embeddings = get_all_candidate_embeddings(args,model,all_entity_token_ids,all_entity_token_masks)
-
-            # Indexing for faster search (using FAISS)
-            # d = all_candidate_embeddings.size(1)
-            # all_candidate_index = faiss.IndexFlatL2(d)  # build the index, d=size of vectors
-            # here we assume `all_candidate_embeddings` contains a n-by-d numpy matrix of type float32
-            # all_candidate_embeddings = all_candidate_embeddings.cpu().detach().numpy()
-            # all_candidate_index.add(all_candidate_embeddings)
-
-        if args.use_hard_and_random_negatives:
-            # Get the existing hard negatives per mention
             if os.path.exists(os.path.join(args.data_dir, 'mention_hard_negatives.json')):
                 with open(os.path.join(args.data_dir, 'mention_hard_negatives.json')) as f_hn:
                     mention_hard_negatives = json.load(f_hn)
             else:
                 mention_hard_negatives = {}
-        
-        
         # Process the mentions
         features = []
         num_longer_docs = 0
         all_document_ids = []
         all_label_candidate_ids = []
-        for (ex_index, document_id) in enumerate(partition(mentions.keys(),hvd.size(),hvd.rank())):
+        for (ex_index, document_id) in enumerate(partition(list(mentions.keys()),hvd.size(),hvd.rank())):
             if ex_index % 1000 == 0:
                 logger.info("Writing example %d of %d", ex_index, len(mentions))
 
@@ -590,16 +579,17 @@ def load_and_cache_examples(
         logger.info("Saving features into cached file %s", cached_features_file)
         if args.use_hard_and_random_negatives:
             mention_hard_negatives_list = comm.gather(mention_hard_negatives)
-            mention_hard_negatives ={}
-            for dictionary in mention_hard_negatives_list:
-                mention_hard_negatives.update(dictionary)
-            with open(os.path.join(args.data_dir, 'mention_hard_negatives.json'), 'w+') as f_hn:
-                json.dump(mention_hard_negatives, f_hn)
-            f_hn.close()
+            if hvd.rank() == 0:
+                mention_hard_negatives ={}
+                for dictionary in mention_hard_negatives_list:
+                    mention_hard_negatives.update(dictionary)
+                with open(os.path.join(args.data_dir, 'mention_hard_negatives.json'), 'w+') as f_hn:
+                    json.dump(mention_hard_negatives, f_hn)
+                f_hn.close()
         #gather across all nodes
-        features=[features for node_features in comm.allgather(features) for features in node_features]#NEED TO FLATTEN
-        all_document_ids =[document_ids for node_document_ids in comm.allgather(all_document_ids) for document_ids in node_document_ids]#NEED TO FLATTEN
-        all_label_candidate_ids = [candidate_ids for node_candidate_ids in comm.allgather(all_label_candidate_ids) for candidate_ids in node_candidate_ids]#NEED TO FLATTEN
+        features=[features for node_features in comm.allgather(features) for features in node_features]#FLATTENED
+        all_document_ids =[document_ids for node_document_ids in comm.allgather(all_document_ids) for document_ids in node_document_ids]#FLATTENED
+        all_label_candidate_ids = [candidate_ids for node_candidate_ids in comm.allgather(all_label_candidate_ids) for candidate_ids in node_candidate_ids]#FLATTENED
         num_longer_docs = comm.allreduce(num_longer_docs,op=MPI.SUM)
         print(num_longer_docs)
         if hvd.rank()==0:
@@ -708,7 +698,7 @@ def get_all_candidate_embeddings(args, model, all_entity_token_ids, all_entity_t
         node_entity_token_ids = partition(all_entity_token_ids,hvd.size(),hvd.rank())
         node_entity_token_masks = partition(all_entity_token_masks,hvd.size(),hvd.rank())
         for i, _ in enumerate(node_entity_token_ids):
-            logger.info(all_entity_token_ids.index(node_entity_token_ids[i]))
+            #logger.info(all_entity_token_ids.index(node_entity_token_ids[i]))
             entity_tokens = node_entity_token_ids[i]
             entity_tokens_masks = node_entity_token_masks[i]
             candidate_token_ids = torch.LongTensor([entity_tokens]).to(args.device)

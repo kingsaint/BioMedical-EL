@@ -171,8 +171,8 @@ def train_one_epoch(args, tokenizer_class, tokenizer, model, optimizer, schedule
     if hvd.rank() == 0:    
         mlflow.log_metrics({"averaged_training_loss_per_epoch":tr_loss_averaged_across_all_instances},epoch_num)
             #save checkpoint at end or after prescribed number of epochs
-    if hvd.rank() == 0 and (epoch_num==args.num_train_epochs or epoch_num % args.save_epochs == 0):
-        save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,optimizer,scheduler)
+        if (epoch_num==args.num_train_epochs or epoch_num % args.save_epochs == 0):
+            save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,optimizer,scheduler)
             
             # New data loader for the next epoch
 
