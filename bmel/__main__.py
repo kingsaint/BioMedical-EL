@@ -260,9 +260,7 @@ def main(db_token,args=None):
                 args.output_dir
             )
         )
-    mlflow.set_experiment(args.experiment_name)
-    experiment = mlflow.get_experiment_by_name(args.experiment_name)
-    args.experiment_id = experiment.experiment_id
+    
     # Set seed
     set_seed(args)
     if not args.do_train and not args.do_eval:
@@ -272,10 +270,14 @@ def main(db_token,args=None):
     if args.do_train:
         hvd_functions.append(train_hvd)
         parameters_to_log = parameters_to_log.union(TRAINING_ARGS)
+        args.experiment_name = os.path.join(args.experiment_name,"training")
     if args.do_eval:
         hvd_functions.append(eval_hvd)
         parameters_to_log = parameters_to_log.union(EVAL_ARGS)
-        
+        args.experiment_name = os.path.join(args.experiment_name,"evaluation")
+    mlflow.set_experiment(args.experiment_name)
+    experiment = mlflow.get_experiment_by_name(args.experiment_name)
+    args.experiment_id = experiment.experiment_id    
     with mlflow.start_run() as run:
         for arg_name,arg_value in args.__dict__.items():
             if arg_name in parameters_to_log:
