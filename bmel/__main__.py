@@ -289,6 +289,7 @@ def main(db_token,args=None):
                 os.path.dirname(c) for c in sorted(glob.glob(args.output_dir + "/**/" + "checkpoint**/", recursive=True))
             )
         for checkpoint in checkpoints:
+            print(checkpoint)
             args.output_dir = checkpoint
             with mlflow.start_run() as run:
                 for arg_name,arg_value in args.__dict__.items():
@@ -297,7 +298,7 @@ def main(db_token,args=None):
                 args.active_run_id = run.info.run_id
                 args.db_token = db_token
                 hr = HorovodRunner(np=args.n_gpu,driver_log_verbosity='all') 
-                hr.run(train_hvd, args=args)
+                hr.run(eval_hvd, args=args)
 
     
 
