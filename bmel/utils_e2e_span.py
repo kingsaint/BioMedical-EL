@@ -607,8 +607,6 @@ def load_and_cache_examples(
             np.array(all_label_candidate_ids))
             logger.info("Saved features into cached file %s", cached_features_file)
             if args.use_hard_and_random_negatives:
-
-                
                 mention_hard_negatives ={}
                 for dictionary in mention_hard_negatives_list:
                     mention_hard_negatives.update(dictionary)
