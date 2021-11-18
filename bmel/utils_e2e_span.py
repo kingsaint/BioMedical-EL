@@ -644,9 +644,9 @@ def load_and_cache_examples(
                             all_num_mentions,
                             all_seq_tag_ids,
                             )
-    return dataset, (all_entities, all_entity_token_ids, all_entity_token_masks), (all_document_ids, all_label_candidate_ids)
+    return dataset, (all_entities, all_entity_token_ids, all_entity_token_masks,all_candidate_embeddings), (all_document_ids, all_label_candidate_ids)
 
-def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,optimizer,scheduler):
+def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,optimizer,scheduler,all_candidate_embeddings):
     # Saving best-practices: if you use defaults names for the model, you can reload it using from_pretrained()
     # Create output directory if needed
     epoch_num = epoch_num + 1 
@@ -672,6 +672,7 @@ def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,optimizer,sch
     torch.save(args, os.path.join(output_dir, "training_args.bin"))
     torch.save(optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
     torch.save(scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
+    torch.save(all_candidate_embeddings, os.path.join(output_dir, "all_candidate_embeddings.pt"))
     logger.info("Saving optimizer and scheduler states to %s", output_dir)
     
     # Load a trained model and vocabulary that you have fine-tuned to ensure proper
