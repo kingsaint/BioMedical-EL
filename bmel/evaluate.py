@@ -97,9 +97,8 @@ def eval_hvd(args, prefix=""):
                                                 all_together_file_paths["gold"],
                                                 measures=MEASURES)
                     results = evaluator()
-                    for measure_name in MEASURES:
-                        metrics = results[measure_name]
-                        for metric_name,metric in metrics:
+                    for measure_name,metrics in results.items():
+                        for metric_name,metric in metrics.items():
                             full_metric_name = measure_name + "_" + metric_name
                             mlflow.log_metric(full_metric_name,metric)
 
