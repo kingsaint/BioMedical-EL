@@ -590,7 +590,8 @@ def load_and_cache_examples(
         all_document_ids =[document_ids for node_document_ids in comm.allgather(all_document_ids) for document_ids in node_document_ids]#FLATTENED
         all_label_candidate_ids = [candidate_ids for node_candidate_ids in comm.allgather(all_label_candidate_ids) for candidate_ids in node_candidate_ids]#FLATTENED
         num_longer_docs = comm.allreduce(num_longer_docs,op=MPI.SUM)
-        mention_hard_negatives_list = comm.gather(mention_hard_negatives)
+        if args.use_hard_and_random_negatives:
+            mention_hard_negatives_list = comm.gather(mention_hard_negatives)
         print(num_longer_docs)
         if hvd.rank()==0:
             logger.info("Saving features into cached file %s", cached_features_file)
