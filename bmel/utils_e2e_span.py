@@ -583,15 +583,17 @@ def load_and_cache_examples(
                             seq_tag_ids=seq_tag_ids,
                             )
             )
-        logger.info("Saving features into cached file %s", cached_features_file)
+        
         
         #gather across all nodes
         features=[features for node_features in comm.allgather(features) for features in node_features]#FLATTENED
         all_document_ids =[document_ids for node_document_ids in comm.allgather(all_document_ids) for document_ids in node_document_ids]#FLATTENED
         all_label_candidate_ids = [candidate_ids for node_candidate_ids in comm.allgather(all_label_candidate_ids) for candidate_ids in node_candidate_ids]#FLATTENED
         num_longer_docs = comm.allreduce(num_longer_docs,op=MPI.SUM)
+        mention_hard_negatives_list = comm.gather(mention_hard_negatives)
         print(num_longer_docs)
         if hvd.rank()==0:
+            logger.info("Saving features into cached file %s", cached_features_file)
             torch.save(features, cached_features_file)
             np.save(os.path.join(args.data_dir, 'all_entities.npy'),
                         np.array(all_entities))
@@ -603,9 +605,10 @@ def load_and_cache_examples(
                     np.array(all_document_ids))
             np.save(os.path.join(args.data_dir, 'all_label_candidate_ids.npy'),
             np.array(all_label_candidate_ids))
+            logger.info("Saved features into cached file %s", cached_features_file)
             if args.use_hard_and_random_negatives:
 
-                mention_hard_negatives_list = comm.gather(mention_hard_negatives)
+                
                 mention_hard_negatives ={}
                 for dictionary in mention_hard_negatives_list:
                     mention_hard_negatives.update(dictionary)
