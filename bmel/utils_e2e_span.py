@@ -327,6 +327,7 @@ def load_and_cache_examples(
                         negative_candidates = random.sample(candidate_pool, args.num_candidates - 1)
                         m_candidates += negative_candidates
                         candidates.append(m_candidates)
+                    all_candidate_embeddings=None
 
                 elif args.use_tfidf_candidates:  # TF-IDF negatives
                     for m_idx, m in enumerate(mentions[document_id]):
@@ -656,7 +657,7 @@ def load_and_cache_examples(
                             )
     return dataset, (all_entities, all_entity_token_ids, all_entity_token_masks,all_candidate_embeddings), (all_document_ids, all_label_candidate_ids)
 
-def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,optimizer,scheduler,all_candidate_embeddings):
+def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,optimizer,scheduler,all_candidate_embeddings=None):
     # Saving best-practices: if you use defaults names for the model, you can reload it using from_pretrained()
     # Create output directory if needed
     epoch_num = epoch_num + 1 
@@ -680,10 +681,15 @@ def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,optimizer,sch
     model_to_save.save_pretrained(output_dir)
     tokenizer.save_pretrained(output_dir)
     torch.save(args, os.path.join(output_dir, "training_args.bin"))
+    logger.info("Saving optimizer and scheduler states to %s", output_dir)
     torch.save(optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
     torch.save(scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
-    torch.save(all_candidate_embeddings, os.path.join(output_dir, "all_candidate_embeddings.pt"))
     logger.info("Saving optimizer and scheduler states to %s", output_dir)
+    if all_candidate_embeddings is not None:
+        logger.info("Saving candidate_embeddings to  %s", output_dir)
+        torch.save(all_candidate_embeddings, os.path.join(output_dir, "all_candidate_embeddings.pt"))
+        logger.info("Saved candidate_embeddings to  %s", output_dir)
+    
     
     # Load a trained model and vocabulary that you have fine-tuned to ensure proper
     if final:
