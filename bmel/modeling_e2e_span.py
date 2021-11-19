@@ -148,7 +148,7 @@ class DualEncoderBert(BertPreTrainedModel):
                     for j in range(mention_start_indices.size(1)):
                         s_idx = mention_start_indices[i][j].item()
                         e_idx = mention_end_indices[i][j].item()
-                        m_embd = torch.mean(last_hidden_states[i, s_idx:e_idx + 1, :], dim=1)##fixed?
+                        m_embd = torch.mean(last_hidden_states[:, s_idx:e_idx + 1, :], dim=1)
                         mention_embeddings.append(m_embd)
                 mention_embeddings = torch.cat(mention_embeddings, dim=0).unsqueeze(1)
 
