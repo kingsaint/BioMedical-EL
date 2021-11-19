@@ -43,7 +43,7 @@ def eval_hvd(args, prefix=""):
 
         model.to(args.device)
 
-        eval_dataset, (all_entities, all_entity_token_ids, all_entity_token_masks,all_candidate_embeddings), \
+        eval_dataset, (all_entities, _, _,all_candidate_embeddings), \
         (all_document_ids, all_label_candidate_ids) = load_and_cache_examples(args, tokenizer)
         
         logger.info("Evaluation Dataset Created")
