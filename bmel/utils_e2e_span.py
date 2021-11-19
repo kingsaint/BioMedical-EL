@@ -624,6 +624,16 @@ def load_and_cache_examples(
         all_entity_token_ids = np.load(os.path.join(args.data_dir, 'all_entity_token_ids.npy'))
         all_entity_token_masks = np.load(os.path.join(args.data_dir, 'all_entity_token_masks.npy'))
         logger.info("Finished loading features from cached file %s", cached_features_file)
+        if args.use_all_candidates or args.use_hard_negatives or args.use_hard_and_random_negatives:
+            if model is None:
+                raise ValueError("`model` parameter cannot be None")
+            all_candidate_embedding_path = os.path.join(args.output_dir, 'all_candidate_embeddings.pt')
+            if os.path.exists(all_candidate_embedding_path):
+                all_candidate_embeddings =torch.load(all_candidate_embedding_path)
+            else:
+                all_candidate_embeddings = get_all_candidate_embeddings(args, model, all_entity_token_ids, all_entity_token_masks)
+        else:
+            all_candidate_embeddings=None
     
 
 
@@ -655,16 +665,7 @@ def load_and_cache_examples(
                             all_num_mentions,
                             all_seq_tag_ids,
                             )
-    if args.use_all_candidates or args.use_hard_negatives or args.use_hard_and_random_negatives:
-        if model is None:
-            raise ValueError("`model` parameter cannot be None")
-        all_candidate_embedding_path = os.path.join(args.output_dir, 'all_candidate_embeddings.pt')
-        if os.path.exists(all_candidate_embedding_path):
-            all_candidate_embeddings =torch.load(all_candidate_embedding_path)
-        else:
-            all_candidate_embeddings = get_all_candidate_embeddings(args, model, all_entity_token_ids, all_entity_token_masks)
-    else:
-        all_candidate_embeddings=None
+
     return dataset, (all_entities, all_entity_token_ids, all_entity_token_masks,all_candidate_embeddings), (all_document_ids, all_label_candidate_ids)
 
 def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,optimizer,scheduler,all_candidate_embeddings=None):
