@@ -204,11 +204,11 @@ def train_one_batch(args,  model, optimizer, scheduler, global_step, step, batch
         loss = loss / args.gradient_accumulation_steps
     else:
         loss.backward()
-    tr_loss_averaged_across_all_instances = comm.Reduce(loss.item(),op=MPI.SUM,root=0)/hvd.size()
+    tr_loss_averaged_across_all_instances = comm.reduce(loss.item(),op=MPI.SUM,root=0)/hvd.size()
     if ner_loss is not None:
-        ner_loss_averaged_across_all_instances = comm.Reduce(ner_loss.item(),op=MPI.SUM,root=0)/hvd.size()
+        ner_loss_averaged_across_all_instances = comm.reduce(ner_loss.item(),op=MPI.SUM,root=0)/hvd.size()
     if ned_loss is not None:
-        ned_loss_averaged_across_all_instances = comm.Reduce(ned_loss.item(),op=MPI.SUM,root=0)/hvd.size()
+        ned_loss_averaged_across_all_instances = comm.reduce(ned_loss.item(),op=MPI.SUM,root=0)/hvd.size()
 
     if tr_loss_averaged_across_all_instances is not None:
         mlflow.log_metrics({"averaged_training_loss_per_step":tr_loss_averaged_across_all_instances},step)
