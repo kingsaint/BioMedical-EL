@@ -200,6 +200,7 @@ class DualEncoderBert(BertPreTrainedModel):
                 b_size, n_c, seq_len = candidate_token_ids.size()
 
                 # Mask off the padding candidates (because there maybe less than 'num_candidates' hard negatives)
+                logger.info(f"candidate_token_ids:{candidate_token_ids}")
                 candidate_mask = torch.sum(candidate_token_ids, dim=2)  # B X C
                 non_zeros = torch.where(candidate_mask > 0)
                 candidate_mask[non_zeros] = 1  # B X C
