@@ -80,13 +80,13 @@ class DualEncoderBert(BertPreTrainedModel):
             cumulative_mention_scores[torch.where(mention_token_masks == 0)] = -self.BIGINT
             cumulative_mention_scores[:, 0] = mention_scores[:, 0]
             for i in range(1, mention_token_masks.size(1)):
-                cumulative_mention_scores[:, i] = cumulative_mention_scores[:, i-1] + mention_scores[:, i]
+                cumulative_mention_scores[:, i] = cumulative_mention_scores[:, i-1] + masked_mention_scores[:, i]
 
             all_span_mention_scores = cumulative_mention_scores.unsqueeze(1) - cumulative_mention_scores.unsqueeze(2)
-            all_span_mention_scores += mention_scores.unsqueeze(2).expand_as(all_span_mention_scores)
+            all_span_mention_scores += masked_mention_scores.unsqueeze(2).expand_as(all_span_mention_scores)
 
             # Add the start scores and end scores
-            all_span_start_end_scores = start_scores.unsqueeze(2) + end_scores.unsqueeze(1)
+            all_span_start_end_scores = masked_start_scores.unsqueeze(2) + masked_end_scores.unsqueeze(1)
 
             # Add the mention span scores with the sum of start scores and end scores
             all_span_scores = all_span_start_end_scores + all_span_mention_scores
@@ -148,7 +148,7 @@ class DualEncoderBert(BertPreTrainedModel):
                     for j in range(mention_start_indices.size(1)):
                         s_idx = mention_start_indices[i][j].item()
                         e_idx = mention_end_indices[i][j].item()
-                        m_embd = torch.mean(last_hidden_states[:, s_idx:e_idx + 1, :], dim=1)
+                        m_embd = torch.mean(last_hidden_states[i, s_idx:e_idx + 1, :], dim=1)##fixed?
                         mention_embeddings.append(m_embd)
                 mention_embeddings = torch.cat(mention_embeddings, dim=0).unsqueeze(1)
 
@@ -211,10 +211,11 @@ class DualEncoderBert(BertPreTrainedModel):
                     input_ids=candidate_token_ids,
                     attention_mask=candidate_token_masks,
                 )
-                pooled_candidate_outputs = candidate_outputs[1]
+                pooled_candidate_outputs = candidate_outputs[1]#first token of candidate
 
                 candidate_embeddings = pooled_candidate_outputs.reshape(-1, 2 * args.num_candidates,
                                                                         self.hidden_size)  # BN X 2*C X H
+                logger.info(f"candidate_embeddings.size():{candidate_embeddings.size()}")
                 #logger.info(str(all_candidate_embeddings.size()))
                 linker_logits = torch.bmm(mention_embeddings, candidate_embeddings.transpose(1, 2))
                 linker_logits = linker_logits.squeeze(1)  # BN X C
@@ -224,13 +225,16 @@ class DualEncoderBert(BertPreTrainedModel):
                 # Mask off the padding candidates
                 candidate_mask = candidate_mask.reshape(-1, 2 * args.num_candidates)
                 linker_logits = linker_logits - (1.0 - candidate_mask) * 1e31
+                logger.info(f"linking_logits:{linker_logits}")
 
                 labels = labels.reshape(-1)
-
+                logger.info(f"labels:{labels}")
                 linking_loss = self.loss_fn_linker(linker_logits, labels)
                 # Normalize the loss
                 num_mentions = torch.where(labels >= 0)[0].size(0)
+                logger.loss(f"linking_loss:{linking_loss}")
                 linking_loss = linking_loss / num_mentions
+                logger.info(f"normalized linking loss" {linking_loss}")
                 return linking_loss, linker_logits
 
             if all_candidate_embeddings is not None:
