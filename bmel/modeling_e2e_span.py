@@ -73,12 +73,12 @@ class DualEncoderBert(BertPreTrainedModel):
             mention_scores = mention_scores.squeeze(-1)
             mask = torch.where(mention_token_masks==0,-self.BIGFLOAT,1.0).to(mention_token_masks.device)
             # Exclude The masked tokens from start or end mentions
-            masked_start_scores = start_scores*mask
-            masked_end_scores =end_scores*mask
-            masked_mention_scores = mention_scores*mask
+            masked_start_scores = start_scores+mask
+            masked_end_scores =end_scores+mask
+            masked_mention_scores = mention_scores+mask
             cumulative_mention_scores = torch.zeros(mention_token_masks.size()).to(mention_token_masks.device)
             cumulative_mention_scores[torch.where(mention_token_masks == 0)] = -self.BIGINT
-            cumulative_mention_scores[:, 0] = mention_scores[:, 0]
+            cumulative_mention_scores[:, 0] = masked_mention_scores[:, 0]
             for i in range(1, mention_token_masks.size(1)):
                 cumulative_mention_scores[:, i] = cumulative_mention_scores[:, i-1] + masked_mention_scores[:, i]
 
@@ -135,6 +135,7 @@ class DualEncoderBert(BertPreTrainedModel):
                         targets[i] = 1.0
                 # Binary Cross Entropy loss
                 ner_loss = self.loss_fn_ner(valid_span_scores, targets)
+                logger.info(f"ner_loss:{ner_loss}")
                 return ner_loss, last_hidden_states
             else:
                 # Inference supports batch_size=1
