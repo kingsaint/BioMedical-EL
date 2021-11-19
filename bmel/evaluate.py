@@ -8,7 +8,7 @@ import pandas as pd
 from torch.utils.data import DataLoader
 import torch
 from torch.utils.data.sampler import SequentialSampler
-from tqdm import tqdm, trange
+from tqdm import tqdm
 from neleval.__main__ import APPS as neleval_apps
 
 from .utils_e2e_span import  get_comm_magic, get_trained_model, load_and_cache_examples
@@ -17,7 +17,7 @@ from .utils_e2e_span import  get_comm_magic, get_trained_model, load_and_cache_e
 import horovod.torch as hvd
 import mlflow
 
-from .utils_e2e_span import get_all_candidate_embeddings, load_and_cache_examples, get_comm_magic
+from .utils_e2e_span import load_and_cache_examples, get_comm_magic
 
 EVALUATOR_CLASS = neleval_apps[0]
 MEASURES={'overlap-maxmax::span+kbid':"overlapping",
