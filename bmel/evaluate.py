@@ -44,7 +44,7 @@ def eval_hvd(args, prefix=""):
         model.to(args.device)
 
         eval_dataset, (all_entities, _, _,all_candidate_embeddings), \
-        (all_document_ids, all_label_candidate_ids) = load_and_cache_examples(args, tokenizer)
+        (all_document_ids, all_label_candidate_ids) = load_and_cache_examples(args, tokenizer,model)
         
         logger.info("Evaluation Dataset Created")
         if not os.path.exists(args.output_dir) and hvd.rank==0:
