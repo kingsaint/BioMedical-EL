@@ -233,7 +233,7 @@ class DualEncoderBert(BertPreTrainedModel):
                 linking_loss = self.loss_fn_linker(linker_logits, labels)
                 # Normalize the loss
                 num_mentions = torch.where(labels >= 0)[0].size(0)
-                logger.loss(f"ned linking_loss:{linking_loss}")
+                logger.info(f"ned linking_loss:{linking_loss}")
                 linking_loss = linking_loss / num_mentions
                 logger.info(f"normalized ned linking loss: {linking_loss}")
                 return linking_loss, linker_logits
