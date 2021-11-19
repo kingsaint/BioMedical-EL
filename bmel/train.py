@@ -6,6 +6,7 @@
 import logging
 import os
 import random
+from mpi4py import MPI
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
@@ -147,7 +148,7 @@ def train_hvd(args):
             tr_loss_averaged_across_all_instances = train_one_epoch(args, model, optimizer, scheduler, global_step, epoch_iterator)
             if args.use_random_candidates:
                 # New data loader at every epoch for random sampler if we use random negative samples
-                train_dataset, _, _= load_and_cache_examples(args, tokenizer)
+                train_dataset, (_,_,_,all_candidate_embeddings), _= load_and_cache_examples(args, tokenizer)
                 train_sampler = DistributedSampler(train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
                 train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.per_gpu_train_batch_size)
             elif args.use_hard_negatives or args.use_hard_and_random_negatives:
@@ -180,6 +181,7 @@ def train_one_epoch(args, model, optimizer, scheduler, global_step, epoch_iterat
 def train_one_batch(args,  model, optimizer, scheduler, global_step, step, batch):
     model.train()
     ner_inputs, ned_inputs = get_inputs(args, batch)
+    comm = get_comm_magic()
     if args.ner:
         loss, _ = model.forward(**ner_inputs)
     elif args.alternate_batch:
@@ -193,20 +195,27 @@ def train_one_batch(args,  model, optimizer, scheduler, global_step, step, batch
         ned_inputs["last_hidden_states"] = last_hidden_states
         ned_loss, _ = model.forward(**ned_inputs)
         loss = ner_loss + ned_loss
+        
     else:
         logger.info(" Specify a training protocol from (ner, alternate_batch, ner_and_ned)")
 
 
     if args.gradient_accumulation_steps > 1:
         loss = loss / args.gradient_accumulation_steps
-
     else:
         loss.backward()
-    tr_loss_averaged_across_all_instances = hvd.allreduce(loss).item()
+    tr_loss_averaged_across_all_instances = comm.Reduce(loss.item(),op=MPI.AVG,root=0)
+    if ner_loss is not None:
+        ner_loss_averaged_across_all_instances = comm.Reduce(ner_loss.item(),op=MPI.AVG,root=0)
+    if ned_loss is not None:
+        ned_loss_averaged_across_all_instances = comm.Reduce(ned_loss.item(),op=MPI.AVG,root=0)
 
-    if hvd.rank() == 0:
-        mlflow.log_metrics({"averaged_training_loss_per_step":tr_loss_averaged_across_all_instances},step)
-
+    if tr_loss_averaged_across_all_instances is not None:
+        mlflow.log_metrics({"averaged_ner_training_loss_per_step":tr_loss_averaged_across_all_instances},step)
+    if ner_loss_averaged_across_all_instances is not None:
+        mlflow.log_metrics({"averaged_ner_training_loss_per_step":ner_loss_averaged_across_all_instances},step)
+    if ner_loss_averaged_across_all_instances is not None:
+        mlflow.log_metrics({"averaged_ned_training_loss_per_step":ned_loss_averaged_across_all_instances},step)
     if (step + 1) % args.gradient_accumulation_steps == 0:
         torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
         optimizer.step()
