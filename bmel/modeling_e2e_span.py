@@ -171,11 +171,7 @@ class DualEncoderBert(BertPreTrainedModel):
 
                 if labels is not None:
                     labels = labels.reshape(-1)  # BN
-           
                     linking_loss = self.loss_fn_linker(linker_logits, labels)
-                    # Normalize the loss
-                    num_mentions = torch.where(labels >= 0)[0].size(0)
-                    linking_loss = linking_loss / num_mentions
                     logger.info(f"ned loss: {str(linking_loss.item())}")
                 else:
                     linking_loss = None
@@ -234,9 +230,6 @@ class DualEncoderBert(BertPreTrainedModel):
                 linking_loss = self.loss_fn_linker(linker_logits, labels)
                 # Normalize the loss
                 num_mentions = torch.where(labels >= 0)[0].size(0)
-                logger.info(f"ned linking_loss:{linking_loss}")
-                linking_loss = linking_loss / num_mentions
-                logger.info(f"normalized ned linking loss: {linking_loss}")
                 return linking_loss, linker_logits
 
             if all_candidate_embeddings is not None:

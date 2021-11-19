@@ -8,14 +8,21 @@ import re
 # with open('./data/NCBI_Disease/mentions_candidates_tfidf.json') as f:
 #     mentions_candidates_tfidf = json.load(f)
 
-
 def preprocess_data(data_dir,dbutils=None):
     tokenizer = BertTokenizer.from_pretrained(pretrained_model_name_or_path='monologg/biobert_v1.1_pubmed',
                                               do_lower_case=False, cache_dir=None)
     print(len(tokenizer))
-
+    entity_path = '/dbfs/Workspace/Repos/cflowers@trend.community/BioMedical-EL/data/BC5CDR/raw_data/entities.txt'
+    entities=[]
+    with open(entity_path, encoding='utf-8') as f:
+        for line in f:
+            if 'BC5CDR' in data_dir:
+                e, text = line.strip().split('\t')
+            else:
+                e, _, text = line.strip().split('\t')
+            entities[e] = text
+    
     regex = re.compile('^\d+\|[a|t]\|')
-
     raw_data_dir = os.path.join(data_dir, "raw_data")
     save_dir = os.path.join(data_dir,"processed_data")
     if not os.path.exists(save_dir):
@@ -76,14 +83,14 @@ def preprocess_data(data_dir,dbutils=None):
                         tfidf_candidates = []
                         # for c in mentions_candidates_tfidf[document_id][mention_id]["all_candidates"]:
                         #     tfidf_candidates.append(c["candidate_id"])
-
-                        mentions[document_id].append({"mention_id": mention_id,
-                                                 "start_index": start_index,
-                                                 "end_index": end_index,
-                                                 "text": mention_text,
-                                                 "type": mention_type,
-                                                 "content_document_id": document_id,
-                                                 "label_candidate_id": candidate_id}
+                        if candidate_id in entities.keys():#make sure the candidate is actually in the entities.
+                            mentions[document_id].append({"mention_id": mention_id,
+                                                    "start_index": start_index,
+                                                    "end_index": end_index,
+                                                    "text": mention_text,
+                                                    "type": mention_type,
+                                                    "content_document_id": document_id,
+                                                    "label_candidate_id": candidate_id}
                                                     ) # "tfidf_candidates": tfidf_candidates
 
                     else:  # Empty lines

@@ -14,11 +14,10 @@ ALL_MODELS = sum(
 
 EVAL_ARGS = {
                     "n_gpu",
-                    "gamma"
                     "max_mention_length",
                     "max_seq_length",
                     "per_gpu_train_batch_size",
-                    "use_all_candidates"
+                    "use_all_candidates",
                     "ner_and_ned",
                     "seed"
                 }   

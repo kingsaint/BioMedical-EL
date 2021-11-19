@@ -102,10 +102,6 @@ def eval_hvd(args, prefix=""):
                         for metric_name,metric in metrics.items():
                             full_metric_name = easy_measure_name + "_" + metric_name
                             mlflow.log_metric(full_metric_name,metric)
-
-                
-
-
                 mlflow.log_artifacts(gamma_dir)
         mlflow.log_artifacts(args.output_dir)
 
