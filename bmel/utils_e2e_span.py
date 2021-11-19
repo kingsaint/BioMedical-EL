@@ -420,8 +420,7 @@ def load_and_cache_examples(
                         # print(m_idx)
                         for i, c_idx in enumerate(candidate_indices[m_idx]):
                             c = all_entities[c_idx]
-                            if not c == m["label_candidate_id"]:  # Positive candidate position
-                                if c not in mention_hard_negatives[mention_id]:
+                            if not c == m["label_candidate_id"] and c not in mention_hard_negatives[mention_id]:
                                     mention_hard_negatives[mention_id].append(c)
 
                     candidates_2 = []
@@ -491,6 +490,7 @@ def load_and_cache_examples(
                             candidate_tokens = [tokenizer.cls_token] + entity_window + [tokenizer.sep_token]
                             candidate_tokens = tokenizer.convert_tokens_to_ids(candidate_tokens)
                         else:
+                            logger.warning(f"{c} not in entities.")
                             candidate_tokens = [0]*max_entity_len
                         if len(candidate_tokens) > max_entity_len:
                             candidate_tokens = candidate_tokens[:max_entity_len]
