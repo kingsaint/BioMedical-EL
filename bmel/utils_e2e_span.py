@@ -263,7 +263,7 @@ def load_and_cache_examples(
         if args.use_hard_negatives or args.use_hard_and_random_negatives:
             if model is None:
                 raise ValueError("`model` parameter cannot be None")
-            all_candidate_embeddings = get_all_candidate_embeddings(args,model,all_entity_token_ids,all_entity_token_masks)
+            all_candidate_embeddings = get_all_candidate_embeddings(args,model,all_entity_token_ids[:10],all_entity_token_masks[:10])
             if os.path.exists(os.path.join(args.data_dir, 'mention_hard_negatives.json')):
                 with open(os.path.join(args.data_dir, 'mention_hard_negatives.json')) as f_hn:
                     mention_hard_negatives = json.load(f_hn)
