@@ -260,10 +260,17 @@ def load_and_cache_examples(
 
             all_entity_token_ids.append(candidate_tokens)
             all_entity_token_masks.append(candidate_masks)   
-        if args.use_hard_negatives or args.use_hard_and_random_negatives:
+        if args.use_all_candidates or args.use_hard_negatives or args.use_hard_and_random_negatives:
             if model is None:
                 raise ValueError("`model` parameter cannot be None")
-            all_candidate_embeddings = get_all_candidate_embeddings(args,model,all_entity_token_ids[:10],all_entity_token_masks[:10])
+            all_candidate_embedding_path = os.path.join(args.output_dir, 'all_candidate_embeddings.pt')
+            if os.path.exists(all_candidate_embedding_path):
+                all_candidate_embeddings =torch.load(all_candidate_embedding_path)
+            else:
+                all_candidate_embeddings = get_all_candidate_embeddings(args, model, all_entity_token_ids, all_entity_token_masks)
+        else:
+            all_candidate_embeddings=None
+        if args.use_hard_negatives or args.use_hard_and_random_negatives:
             if os.path.exists(os.path.join(args.data_dir, 'mention_hard_negatives.json')):
                 with open(os.path.join(args.data_dir, 'mention_hard_negatives.json')) as f_hn:
                     mention_hard_negatives = json.load(f_hn)
@@ -327,7 +334,6 @@ def load_and_cache_examples(
                         negative_candidates = random.sample(candidate_pool, args.num_candidates - 1)
                         m_candidates += negative_candidates
                         candidates.append(m_candidates)
-                    all_candidate_embeddings=None
 
                 elif args.use_tfidf_candidates:  # TF-IDF negatives
                     for m_idx, m in enumerate(mentions[document_id]):
@@ -436,12 +442,6 @@ def load_and_cache_examples(
                         candidates_2.append(m_hard_candidates)
 
             elif args.do_eval:
-                if args.use_all_candidates:
-                    all_candidate_embedding_path = os.path.join(args.output_dir, 'all_candidate_embeddings.pt')
-                    if os.path.exists(all_candidate_embedding_path):
-                        all_candidate_embeddings =torch.load(all_candidate_embedding_path)
-                    else:
-                        all_candidate_embeddings = get_all_candidate_embeddings(args, model, all_entity_token_ids, all_entity_token_masks)
                 for m_idx, m in enumerate(mentions[document_id]):
                     m_candidates = []
 
@@ -655,6 +655,16 @@ def load_and_cache_examples(
                             all_num_mentions,
                             all_seq_tag_ids,
                             )
+    if args.use_all_candidates or args.use_hard_negatives or args.use_hard_and_random_negatives:
+        if model is None:
+            raise ValueError("`model` parameter cannot be None")
+        all_candidate_embedding_path = os.path.join(args.output_dir, 'all_candidate_embeddings.pt')
+        if os.path.exists(all_candidate_embedding_path):
+            all_candidate_embeddings =torch.load(all_candidate_embedding_path)
+        else:
+            all_candidate_embeddings = get_all_candidate_embeddings(args, model, all_entity_token_ids, all_entity_token_masks)
+    else:
+        all_candidate_embeddings=None
     return dataset, (all_entities, all_entity_token_ids, all_entity_token_masks,all_candidate_embeddings), (all_document_ids, all_label_candidate_ids)
 
 def save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,optimizer,scheduler,all_candidate_embeddings=None):
