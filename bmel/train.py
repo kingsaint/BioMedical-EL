@@ -211,7 +211,7 @@ def train_one_batch(args,  model, optimizer, scheduler, global_step, step, batch
         ned_loss_averaged_across_all_instances = comm.Reduce(ned_loss.item(),op=MPI.SUM,root=0)/hvd.size()
 
     if tr_loss_averaged_across_all_instances is not None:
-        mlflow.log_metrics({"averaged_ner_training_loss_per_step":tr_loss_averaged_across_all_instances},step)
+        mlflow.log_metrics({"averaged_training_loss_per_step":tr_loss_averaged_across_all_instances},step)
     if ner_loss_averaged_across_all_instances is not None:
         mlflow.log_metrics({"averaged_ner_training_loss_per_step":ner_loss_averaged_across_all_instances},step)
     if ner_loss_averaged_across_all_instances is not None:
