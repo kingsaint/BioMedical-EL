@@ -156,7 +156,7 @@ def train_hvd(args):
                 train_sampler = DistributedSampler(train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
                 train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.per_gpu_train_batch_size)
             if hvd.rank() == 0:    
-                mlflow.log_metrics({"averaged_training_loss_per_epoch":tr_loss_averaged_across_all_instances/hvd.size()},epoch_num)
+                mlflow.log_metrics({"averaged_training_loss_per_epoch":tr_loss_averaged_across_all_instances},epoch_num)
                 #save checkpoint at end or after prescribed number of epochs
                 if (epoch_num==args.num_train_epochs or epoch_num % args.save_epochs == 0):
                     save_checkpoint(args,epoch_num,tokenizer,tokenizer_class,model,optimizer,scheduler,all_candidate_embeddings)
@@ -203,18 +203,18 @@ def train_one_batch(args,  model, optimizer, scheduler, global_step, step, batch
         loss = loss / args.gradient_accumulation_steps
     else:
         loss.backward()
-    tr_loss_averaged_across_all_instances = comm.reduce(loss.item(),op=MPI.SUM,root=0)
+    tr_loss_averaged_across_all_instances = comm.reduce(loss.item(),op=MPI.SUM,root=0)/hvd.size()
     if ner_loss is not None:
-        ner_loss_averaged_across_all_instances = comm.reduce(ner_loss.item(),op=MPI.SUM,root=0)
+        ner_loss_averaged_across_all_instances = comm.reduce(ner_loss.item(),op=MPI.SUM,root=0)/hvd.size()
     if ned_loss is not None:
-        ned_loss_averaged_across_all_instances = comm.reduce(ned_loss.item(),op=MPI.SUM,root=0)
+        ned_loss_averaged_across_all_instances = comm.reduce(ned_loss.item(),op=MPI.SUM,root=0)/hvd.size()
 
     if tr_loss_averaged_across_all_instances is not None:
-        mlflow.log_metrics({"averaged_training_loss_per_step":tr_loss_averaged_across_all_instances/hvd.size()},step)
+        mlflow.log_metrics({"averaged_training_loss_per_step":tr_loss_averaged_across_all_instances},global_step)
     if ner_loss_averaged_across_all_instances is not None:
-        mlflow.log_metrics({"averaged_ner_training_loss_per_step":ner_loss_averaged_across_all_instances/hvd.size()},step)
+        mlflow.log_metrics({"averaged_ner_training_loss_per_step":ner_loss_averaged_across_all_instances},global_step)
     if ner_loss_averaged_across_all_instances is not None:
-        mlflow.log_metrics({"averaged_ned_training_loss_per_step":ned_loss_averaged_across_all_instances/hvd.size()},step)
+        mlflow.log_metrics({"averaged_ned_training_loss_per_step":ned_loss_averaged_across_all_instances},global_step)
     if (step + 1) % args.gradient_accumulation_steps == 0:
         torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
         optimizer.step()

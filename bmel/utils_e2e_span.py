@@ -550,7 +550,7 @@ def load_and_cache_examples(
                     logger.warning("More than {} mentions in doc, mentions after {} are ignored".format(
                         args.num_max_mentions, args.num_max_mentions))
                     break
-                if label_candidate_ids[m_idx] in entities:
+                if label_candidate_ids[m_idx] in entities:#ignore target candidate if it is not in the KB
                     if label_candidate_ids[m_idx] in m_candidates:
                         label_ids[m_idx] = m_candidates.index(label_candidate_ids[m_idx])
                     else:
