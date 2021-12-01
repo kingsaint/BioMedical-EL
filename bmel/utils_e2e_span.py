@@ -550,10 +550,11 @@ def load_and_cache_examples(
                     logger.warning("More than {} mentions in doc, mentions after {} are ignored".format(
                         args.num_max_mentions, args.num_max_mentions))
                     break
-                if label_candidate_ids[m_idx] in m_candidates:
-                    label_ids[m_idx] = m_candidates.index(label_candidate_ids[m_idx])
-                else:
-                    label_ids[m_idx] = -100 # when target candidate not in candidate set
+                if label_candidate_ids[m_idx] in entities:
+                    if label_candidate_ids[m_idx] in m_candidates:
+                        label_ids[m_idx] = m_candidates.index(label_candidate_ids[m_idx])
+                    else:
+                        label_ids[m_idx] = -100 # when target candidate not in candidate set
 
             # Pad the mention start and end indices
             mention_start_indices = [0] * args.num_max_mentions
