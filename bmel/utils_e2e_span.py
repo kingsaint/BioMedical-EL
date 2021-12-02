@@ -48,7 +48,7 @@ def load_data(data_dir, mode):
     entities = {}
     with open(entity_path, encoding='utf-8') as f:
         for line in f:
-            if 'BC5CDR' in data_dir:
+            if 'BC5CDR' in data_dir or 'trendnet' in data_dir:
                 e, text = line.strip().split('\t')
             else:
                 e, _, text = line.strip().split('\t')
