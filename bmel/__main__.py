@@ -43,6 +43,7 @@ TRAINING_ARGS = {
                     "use_hard_and_random_negatives",
                     "ner_and_ned",
                     "seed",
+                    "resume_path"
                     "overwrite_cache"
                 }  
 def get_args(dict_args = None):

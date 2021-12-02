@@ -26,31 +26,6 @@ import mlflow
 
 logger = logging.getLogger(__name__)
 
-TRAINING_ARGS = {   "lambda_1",
-                    "lambda_2",
-                    "weight_decay",
-                    "learning_rate",
-                    "adam_epsilon",
-                    "max_grad_norm",
-                    "num_train_epochs"
-                    "n_gpu",
-                    "max_mention_length",
-                    "max_seq_length",
-                    "gradient_accumulation_steps"
-                    "per_gpu_train_batch_size",
-                    "num_candidates",
-                    "num_max_mentions",
-                    "max_steps",
-                    "use_tfidf_candidates",
-                    "use_random_candidates",
-                    "use_hard_negatives",
-                    "use_hard_and_random_negatives",
-                    "ner",
-                    "ner_and_ned",
-                    "seed",
-                    "resume_path"
-                }   
-
 def train_hvd(args):
     """ Train the model """
     mlflow.set_tracking_uri("databricks")
