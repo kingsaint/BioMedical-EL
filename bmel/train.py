@@ -47,7 +47,8 @@ TRAINING_ARGS = {   "lambda_1",
                     "use_hard_and_random_negatives",
                     "ner",
                     "ner_and_ned",
-                    "seed"
+                    "seed",
+                    "resume_path"
                 }   
 
 def train_hvd(args):
