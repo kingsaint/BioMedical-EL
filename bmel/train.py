@@ -17,7 +17,7 @@ from transformers import (
     get_linear_schedule_with_warmup,
 )
 
-from .utils_e2e_span import get_base_model, get_comm_magic, load_and_cache_examples, save_checkpoint, set_seed
+from .utils_e2e_span import get_base_model,get_trained_model, get_comm_magic, load_and_cache_examples, save_checkpoint, set_seed
 
 import horovod.torch as hvd
 from sparkdl import HorovodRunner
@@ -75,8 +75,10 @@ def train_hvd(args):
         logger.info("Training/evaluation parameters %s", args)
         # Load pretrained model and tokenizer
         
-
-        tokenizer_class, tokenizer, model = get_base_model(args)
+        if not args.resume_path:
+            tokenizer_class, tokenizer, model = get_base_model(args)
+        else:
+            tokenizer_class, tokenizer, model = get_trained_model(args)
 
         
             

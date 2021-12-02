@@ -981,10 +981,14 @@ def get_base_model(args):
     return tokenizer_class,tokenizer,model  
 
 def get_trained_model(args):
+    if not args.resume_path:
+        path = args.output_dir
+    else:
+        path = args.resume_path
     tokenizer_class,tokenizer,model = get_base_model(args)
-    model.load_state_dict(torch.load(os.path.join(args.output_dir, 'pytorch_model.bin')))
-    tokenizer = tokenizer_class.from_pretrained(args.output_dir)
-    return tokenizer,model
+    model.load_state_dict(torch.load(os.path.join(path, 'pytorch_model.bin')))
+    tokenizer = tokenizer_class.from_pretrained(path)
+    return tokenizer_class,tokenizer,model
 
 def partition(a, n, i):
     #a=list
