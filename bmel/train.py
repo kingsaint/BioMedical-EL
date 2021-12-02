@@ -144,7 +144,7 @@ def train_hvd(args):
         
         for epoch_num in train_iterator:
             epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=hvd.rank()!=0)
-            tr_loss_total_across_all_instances = train_one_epoch(args, model, optimizer, scheduler, global_step, epoch_iterator)
+            tr_loss_total_across_all_instances,global_step = train_one_epoch(args, model, optimizer, scheduler, global_step, epoch_iterator)
             if args.use_random_candidates:
                 # New data loader at every epoch for random sampler if we use random negative samples
                 train_dataset, (_,_,_,all_candidate_embeddings), _= load_and_cache_examples(args, tokenizer)
@@ -167,14 +167,11 @@ def train_hvd(args):
 
 def train_one_epoch(args, model, optimizer, scheduler, global_step, epoch_iterator):
     for step, batch in enumerate(epoch_iterator):
-        tr_loss_total_across_all_instances = train_one_batch(args, model, optimizer, scheduler, global_step, step, batch)
+        tr_loss_total_across_all_instances,global_step = train_one_batch(args, model, optimizer, scheduler, global_step, step, batch)
         if args.max_steps > 0 and global_step > args.max_steps:
             epoch_iterator.close()
             break
-    return tr_loss_total_across_all_instances
-
-            
-            # New data loader for the next epoch
+    return tr_loss_total_across_all_instances,global_step
 
 
 def train_one_batch(args,  model, optimizer, scheduler, global_step, step, batch):
@@ -221,7 +218,7 @@ def train_one_batch(args,  model, optimizer, scheduler, global_step, step, batch
         scheduler.step()  # Update learning rate schedule
         model.zero_grad()
         global_step += 1
-    return tr_loss_total_across_all_instances
+    return tr_loss_total_across_all_instances,global_step
 
 def get_inputs(args, batch):
     batch = tuple(t.to(args.device) for t in batch)
