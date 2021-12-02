@@ -227,7 +227,7 @@ class DualEncoderBert(BertPreTrainedModel):
                 #logger.info(f"ned linking_logits:{linker_logits}")
 
                 labels = labels.reshape(-1)
-                logger.info(f"ned labels:{labels}")
+                #logger.info(f"ned labels:{labels}")
                 linking_loss = self.loss_fn_linker(linker_logits, labels)
                 return linking_loss, linker_logits
 
