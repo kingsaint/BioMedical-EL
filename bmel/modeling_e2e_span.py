@@ -135,7 +135,7 @@ class DualEncoderBert(BertPreTrainedModel):
                         targets[i] = 1.0
                 # Binary Cross Entropy loss
                 ner_loss = self.loss_fn_ner(valid_span_scores, targets)
-                logger.info(f"ner_loss:{ner_loss}")
+                #logger.info(f"ner_loss:{ner_loss}")
                 return ner_loss, last_hidden_states
             else:
                 # Inference supports batch_size=1
@@ -172,7 +172,7 @@ class DualEncoderBert(BertPreTrainedModel):
                 if labels is not None:
                     labels = labels.reshape(-1)  # BN
                     linking_loss = self.loss_fn_linker(linker_logits, labels)
-                    logger.info(f"ned loss: {str(linking_loss.item())}")
+                    #logger.info(f"ned loss: {str(linking_loss.item())}")
                 else:
                     linking_loss = None
 
@@ -196,7 +196,8 @@ class DualEncoderBert(BertPreTrainedModel):
                 b_size, n_c, seq_len = candidate_token_ids.size()
 
                 # Mask off the padding candidates (because there maybe less than 'num_candidates' hard negatives)
-                logger.info(f"candidate_token_ids:{candidate_token_ids}")
+                #
+                #logger.info(f"candidate_token_ids:{candidate_token_ids}")
                 candidate_mask = torch.sum(candidate_token_ids, dim=2)  # B X C
                 non_zeros = torch.where(candidate_mask > 0)
                 candidate_mask[non_zeros] = 1  # B X C
@@ -213,7 +214,7 @@ class DualEncoderBert(BertPreTrainedModel):
 
                 candidate_embeddings = pooled_candidate_outputs.reshape(-1, 2 * args.num_candidates,
                                                                         self.hidden_size)  # BN X 2*C X H
-                logger.info(f"candidate_embeddings.size():{candidate_embeddings.size()}")
+                #logger.info(f"candidate_embeddings.size():{candidate_embeddings.size()}")
                 #logger.info(str(all_candidate_embeddings.size()))
                 linker_logits = torch.bmm(mention_embeddings, candidate_embeddings.transpose(1, 2))
                 linker_logits = linker_logits.squeeze(1)  # BN X C
@@ -223,7 +224,7 @@ class DualEncoderBert(BertPreTrainedModel):
                 # Mask off the padding candidates
                 candidate_mask = candidate_mask.reshape(-1, 2 * args.num_candidates)
                 linker_logits = linker_logits - (1.0 - candidate_mask) * 1e31
-                logger.info(f"ned linking_logits:{linker_logits}")
+                #logger.info(f"ned linking_logits:{linker_logits}")
 
                 labels = labels.reshape(-1)
                 logger.info(f"ned labels:{labels}")
