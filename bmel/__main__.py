@@ -211,7 +211,7 @@ def get_args(dict_args = None):
         "--gamma_upper", type=float, default=.9, help="Upper boundary for gamma for mention candidate prunning"
     )
     parser.add_argument(
-        "--gamma_step", type=float, default=10, help="Number of steps between upper and lower boundaries for gamma range to evaluate"
+        "--gamma_step", type=int, default=10, help="Number of steps between upper and lower boundaries for gamma range to evaluate"
     )
     parser.add_argument(
         "--lambda_1", type=float, default=1, help="Weight of the random candidate loss"
