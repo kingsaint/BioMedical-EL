@@ -35,6 +35,7 @@ def load_data(data_dir, mode):
         entity_path = './data/NCBI_Disease/raw_data/entities.txt'
     elif 'BC5CDR' in data_dir:
         entity_path = '/dbfs/Workspace/Repos/cflowers@trend.community/BioMedical-EL/data/BC5CDR/raw_data/entities.txt'
+        mlflow.log_param("dataset","BC5CDR")
     elif 'st21pv' in data_dir:
         entity_path = './data/MM_st21pv_CUI/raw_data/entities.txt'
     elif 'aida' in data_dir:
@@ -43,6 +44,7 @@ def load_data(data_dir, mode):
         entity_path = './data/dummy_data/raw_data/entities.txt'
     elif 'trendnet' in data_dir:
         entity_path = "/dbfs/Workspace/Repos/cflowers@trend.community/BioMedical-EL/data/trendnet/processed_data/entities.txt"
+        mlflow.log_param("dataset","trendnet")
     else:
         entity_path = './data/MM_full_CUI/raw_data/entities.txt'
     entities = {}
