@@ -313,6 +313,8 @@ def load_and_cache_examples(
 
             # Build list of candidates
             label_candidate_ids = []
+            # Number of mentions in the documents
+            num_mentions = len(mentions[document_id])
             for m in mentions[document_id]:
                 label_candidate_ids.append(m['label_candidate_id'])
                 all_document_ids.append(document_id)
@@ -320,8 +322,7 @@ def load_and_cache_examples(
 
             candidates = []
             candidates_2 = None
-            # Number of mentions in the documents
-            num_mentions = len(mentions[document_id])
+
             if args.do_train:
                 if args.use_random_candidates:  # Random negatives
                     for m_idx, m in enumerate(mentions[document_id]):
