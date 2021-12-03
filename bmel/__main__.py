@@ -35,7 +35,7 @@ TRAINING_ARGS = {
                     "n_gpu",
                     "max_mention_length",
                     "max_seq_length",
-                    "gradient_accumulation_steps"
+                    "gradient_accumulation_steps",
                     "per_gpu_train_batch_size",
                     "num_candidates",
                     "num_max_mentions",
@@ -46,7 +46,7 @@ TRAINING_ARGS = {
                     "use_hard_and_random_negatives",
                     "ner_and_ned",
                     "seed",
-                    "resume_path"
+                    "resume_path",
                     "overwrite_cache"
                 }  
 def get_args(dict_args = None):
