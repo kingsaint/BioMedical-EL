@@ -231,7 +231,7 @@ def load_and_cache_examples(
     )
     if not os.path.exists(cached_features_file) or args.overwrite_cache:
         mentions, docs, entities = load_data(args.data_dir, mode)
-        all_entities = list(entities.keys())
+        all_entities = list(entities.keys())[:10000]
         all_entity_token_ids = []
         all_entity_token_masks = []
         for c_idx, c in enumerate(all_entities):
