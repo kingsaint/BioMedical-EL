@@ -69,15 +69,7 @@ def load_data(data_dir, mode):
     with open(file_path, encoding='utf-8') as f:
         print("mentions {} dataset is loading......".format(mode))
         # doc_idx = 0
-        for line in f:
-            # doc_id = doc_ids[doc_idx]
-            doc_mentions = json.loads(line.strip())
-            if len(doc_mentions) > 0:
-                doc_id = doc_mentions[0]["content_document_id"]
-                ments[doc_id] = json.loads(line)
-            # for line in f:
-            #     fields = json.loads(line)
-            #     ments[fields["mention_id"]] = {k: v for k, v in fields.items() if k != "mention_id"}
+        json.load(f)
         print("mentions {} dataset is done :)".format(mode))
     return ments, docs, entities
 
