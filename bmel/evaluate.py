@@ -34,7 +34,7 @@ def eval_hvd(args, prefix=""):
         os.environ['CUDA_VISIBLE_DEVICES'] = str(hvd.local_rank())
         comm = get_comm_magic()
         args.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        tokenizer,model= get_trained_model(args)
+        _,tokenizer,model= get_trained_model(args)
 
         if args.device.type == 'cuda':
          # Pin GPU to local rank
