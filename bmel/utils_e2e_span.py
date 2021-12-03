@@ -69,6 +69,7 @@ def load_data(data_dir, mode):
     file_path = os.path.join(data_dir, mode, 'mentions/mentions.json')
     with open(file_path, encoding='utf-8') as f:
         print("mentions {} dataset is loading......".format(mode))
+        # doc_idx = 0
         ments = json.load(f)
         print("mentions {} dataset is done :)".format(mode))
     return ments, docs, entities
@@ -230,7 +231,7 @@ def load_and_cache_examples(
     )
     if not os.path.exists(cached_features_file) or args.overwrite_cache:
         mentions, docs, entities = load_data(args.data_dir, mode)
-        all_entities = list(entities.keys())
+        all_entities = list(entities.keys())[:10000]
         all_entity_token_ids = []
         all_entity_token_masks = []
         for c_idx, c in enumerate(all_entities):
