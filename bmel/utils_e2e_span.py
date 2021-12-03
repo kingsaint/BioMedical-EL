@@ -315,11 +315,8 @@ def load_and_cache_examples(
             label_candidate_ids = []
             # Number of mentions in the documents
             num_mentions = len(mentions[document_id])
-            if num_mentions < args.num_max_mentions:
-                ned_mentions = mentions[document_id]
-            else:
-                ned_mentions = random.sample(set(mentions[document_id],args.num_max_mentions))
-            for m in ned_mentions:
+
+            for m in mentions[document_id]:
                 label_candidate_ids.append(m['label_candidate_id'])
                 all_document_ids.append(document_id)
                 all_label_candidate_ids.append(m['label_candidate_id'])
