@@ -61,7 +61,7 @@ def eval_hvd(args, prefix=""):
         logger.info("***** Running evaluation {} *****".format(prefix))
         logger.info("  Num examples = %d", len(eval_dataset))
         logger.info("  Batch size = %d", args.eval_batch_size)
-        for gamma in np.linspace(.1,.9,10):
+        for gamma in np.linspace(args.gamma_lower,args.gamma_upper,args.gamma_step):
             args.gamma = gamma
             logger.info("Evaluating gamma %.2f", args.gamma)
             gamma_dir = os.path.join(args.output_dir,'evaluation/gamma_{:.2f}'.format(args.gamma))
