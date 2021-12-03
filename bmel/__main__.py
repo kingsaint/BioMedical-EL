@@ -21,7 +21,8 @@ EVAL_ARGS = {
                     "ner_and_ned",
                     "seed",
                     "gamma_lower",
-                    "gamma_upper"
+                    "gamma_upper",
+                    "gamma_step"
                 }   
 TRAINING_ARGS = {   
                     "lambda_1",
@@ -204,13 +205,13 @@ def get_args(dict_args = None):
         "--ner_and_ned", type=bool, default=True, help="Model will perform both BIO tagging and entity linking per batch during training"
     )
     parser.add_argument(
-        "--gamma_lower", type=float, default=0, help="Lower boundary for gamma for mention candidate prunning"
+        "--gamma_lower", type=float, default=.1, help="Lower boundary for gamma for mention candidate prunning"
     )
     parser.add_argument(
-        "--gamma_upper", type=float, default=0, help="Upper boundary for gamma for mention candidate prunning"
+        "--gamma_upper", type=float, default=.9, help="Upper boundary for gamma for mention candidate prunning"
     )
     parser.add_argument(
-        "--gamma_step", type=float, default=0, help="Number of steps between upper and lower boundaries for gamma range to evaluate"
+        "--gamma_step", type=float, default=10, help="Number of steps between upper and lower boundaries for gamma range to evaluate"
     )
     parser.add_argument(
         "--lambda_1", type=float, default=1, help="Weight of the random candidate loss"
