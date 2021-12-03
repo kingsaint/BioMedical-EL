@@ -67,11 +67,9 @@ def load_data(data_dir, mode):
 
     # doc_ids = list(docs.keys())
     file_path = os.path.join(data_dir, mode, 'mentions/mentions.json')
-    ments = {}
     with open(file_path, encoding='utf-8') as f:
         print("mentions {} dataset is loading......".format(mode))
-        # doc_idx = 0
-        json.load(f)
+        ments = json.load(f)
         print("mentions {} dataset is done :)".format(mode))
     return ments, docs, entities
 
