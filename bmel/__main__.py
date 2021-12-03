@@ -31,7 +31,7 @@ TRAINING_ARGS = {
                     "learning_rate",
                     "adam_epsilon",
                     "max_grad_norm",
-                    "num_train_epochs"
+                    "num_train_epochs",
                     "n_gpu",
                     "max_mention_length",
                     "max_seq_length",
