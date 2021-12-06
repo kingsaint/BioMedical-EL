@@ -273,8 +273,12 @@ def load_and_cache_examples(
         else:
             all_candidate_embeddings=None
         if args.use_hard_negatives or args.use_hard_and_random_negatives:
-            if os.path.exists(os.path.join(args.output_dir, 'mention_hard_negatives.json')):
-                with open(os.path.join(args.output_dir, 'mention_hard_negatives.json')) as f_hn:
+            if args.resume_path:
+                path = args.resume_path
+            else:
+                path = args.output_dir
+            if os.path.exists(os.path.join(path, 'mention_hard_negatives.json')):
+                with open(os.path.join(path, 'mention_hard_negatives.json')) as f_hn:
                     mention_hard_negatives = json.load(f_hn)
             else:
                 mention_hard_negatives = {}
