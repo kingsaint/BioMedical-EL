@@ -153,7 +153,7 @@ def eval_one_batch(args, model, all_entities, all_document_ids, all_label_candid
             sorted_preds = np.flip(np.argsort(preds), axis=1)
             #logger.info(str(sorted_preds))
             predicted_entities = []
-            for i, sorted_pred in enumerate(sorted_preds):
+            for i, _ in enumerate(sorted_preds):
                 predicted_entity_idx = sorted_preds[i][0]
                 predicted_entity = all_entities[predicted_entity_idx]
                 predicted_entities.append(predicted_entity)

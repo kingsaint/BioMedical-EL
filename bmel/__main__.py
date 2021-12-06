@@ -16,7 +16,6 @@ EVAL_ARGS = {
                     "n_gpu",
                     "max_mention_length",
                     "max_seq_length",
-                    "per_gpu_train_batch_size",
                     "use_all_candidates",
                     "ner_and_ned",
                     "seed",
