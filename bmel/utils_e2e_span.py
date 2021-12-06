@@ -320,7 +320,7 @@ def load_and_cache_examples(
                 label_candidate_ids.append(m['label_candidate_id'])
                 all_document_ids.append(document_id)
                 all_label_candidate_ids.append(m['label_candidate_id'])
-            
+                
 
             candidates = []
             candidates_2 = None
@@ -587,7 +587,7 @@ def load_and_cache_examples(
                             )
             )
         
-        raise Exception(all_document_ids)
+        
         #gather across all nodes
         features=[features for node_features in comm.allgather(features) for features in node_features]#FLATTENED
         all_document_ids =[document_ids for node_document_ids in comm.allgather(all_document_ids) for document_ids in node_document_ids]#FLATTENED
