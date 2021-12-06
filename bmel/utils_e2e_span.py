@@ -55,7 +55,6 @@ def load_data(data_dir, mode):
             else:
                 e, _, text = line.strip().split('\t')
             entities[e] = text
-
     file_path = os.path.join(data_dir, mode, 'documents/documents.json')
     docs = {}
     with open(file_path, encoding='utf-8') as f:
@@ -274,8 +273,8 @@ def load_and_cache_examples(
         else:
             all_candidate_embeddings=None
         if args.use_hard_negatives or args.use_hard_and_random_negatives:
-            if os.path.exists(os.path.join(args.data_dir, 'mention_hard_negatives.json')):
-                with open(os.path.join(args.data_dir, 'mention_hard_negatives.json')) as f_hn:
+            if os.path.exists(os.path.join(args.output_dir, 'mention_hard_negatives.json')):
+                with open(os.path.join(args.output_dir, 'mention_hard_negatives.json')) as f_hn:
                     mention_hard_negatives = json.load(f_hn)
             else:
                 mention_hard_negatives = {}
@@ -622,7 +621,7 @@ def load_and_cache_examples(
                 mention_hard_negatives ={}
                 for dictionary in mention_hard_negatives_list:
                     mention_hard_negatives.update(dictionary)
-                with open(os.path.join(args.data_dir, 'mention_hard_negatives.json'), 'w+') as f_hn:
+                with open(os.path.join(args.output_dir, 'mention_hard_negatives.json'), 'w+') as f_hn:
                     json.dump(mention_hard_negatives, f_hn)
                 f_hn.close()
     else:
