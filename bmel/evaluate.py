@@ -75,9 +75,10 @@ def eval_hvd(args, prefix=""):
                 single_process_gold_file = open(single_process_gold_path, 'w+')
                 single_process_pred_file = open(single_process_pred_path, 'w+')
                 num_mention_processed = 0
-                for batch in tqdm(eval_dataloader, desc="Evaluating"):
+                for batch_id,batch in enumerate(tqdm(eval_dataloader, desc="Evaluating")):
+                    new_doc_id = str(batch_id)
                     model.eval()
-                    num_mentions_processed_in_batch = eval_one_batch(args, model, all_entities, all_document_ids, all_label_candidate_ids, all_candidate_embeddings, single_process_gold_file, single_process_pred_file, num_mention_processed, batch)
+                    num_mentions_processed_in_batch = eval_one_batch(args, model, all_entities, all_document_ids, all_label_candidate_ids, all_candidate_embeddings, single_process_gold_file, single_process_pred_file, num_mention_processed, batch,new_doc_id)
                     num_mention_processed += num_mentions_processed_in_batch
                 single_process_gold_file.close()
                 single_process_pred_file.close()
@@ -105,7 +106,7 @@ def eval_hvd(args, prefix=""):
                 mlflow.log_artifacts(gamma_dir)
         mlflow.log_artifacts(args.output_dir)
 
-def eval_one_batch(args, model, all_entities, all_document_ids, all_label_candidate_ids, all_candidate_embeddings, single_process_gold_file, single_process_pred_file, num_mention_processed, batch):
+def eval_one_batch(args, model, all_entities, all_document_ids, all_label_candidate_ids, all_candidate_embeddings, single_process_gold_file, single_process_pred_file, num_mention_processed, batch,new_doc_id):
     batch = tuple(t.to(args.device) for t in batch)
     with torch.no_grad():
         doc_input = {"args": args,
@@ -156,37 +157,8 @@ def eval_one_batch(args, model, all_entities, all_document_ids, all_label_candid
                 predicted_entity_idx = sorted_preds[i][0]
                 predicted_entity = all_entities[predicted_entity_idx]
                 predicted_entities.append(predicted_entity)
-
-            
-        num_mentions = batch[9].detach().cpu().numpy()[0]
-        document_ids = all_document_ids[num_mention_processed:num_mention_processed + num_mentions]
-        if num_mentions > 0:
-            # Write the gold entities
-            
-            #logger.info(document_ids)
-            assert all(doc_id == document_ids[0] for doc_id in document_ids)
-            gold_mention_start_indices = batch[7].detach().cpu().numpy()[0][:num_mentions]
-            gold_mention_end_indices = batch[8].detach().cpu().numpy()[0][:num_mentions]
-            gold_entities = all_label_candidate_ids[num_mention_processed:num_mention_processed + num_mentions]
-            for j in range(num_mentions):
-                    # if gold_mention_start_indices[j] == gold_mention_end_indices[j]:
-                    #     gold_mention_end_indices[j] += 1
-                if gold_mention_start_indices[j] > gold_mention_end_indices[j]:
-                    continue
-                gold_write = document_ids[j] + '\t' + str(gold_mention_start_indices[j]) \
-                                + '\t' + str(gold_mention_end_indices[j]) \
-                                + '\t' + str(gold_entities[j]) \
-                                + '\t' + str(1.0) \
-                                + '\t' + 'NA' + '\n'
-                single_process_gold_file.write(gold_write)
-        if spans_after_prunning[0].size(0) > 0:
             # Write the predicted entities
             num_pred_mentions = len(predicted_entities)
-            if len(document_ids) == 0:
-                doc_id_processed = "NO_GOLD_MENTIONS"
-            else:
-                doc_id_processed = document_ids[0]
-            
             mention_start_indices = mention_start_indices.detach().cpu().numpy()
             mention_end_indices = mention_end_indices.detach().cpu().numpy()
             mention_probs = pred_mention_span_probs[spans_after_prunning].detach().cpu().numpy()
@@ -196,12 +168,26 @@ def eval_one_batch(args, model, all_entities, all_document_ids, all_label_candid
                     #     pred_mention_end_indices[j] += 1
                 if pred_mention_start_indices[j] > pred_mention_end_indices[j]:
                     continue
-                pred_write = doc_id_processed + '\t' + str(mention_start_indices[j]) \
+                pred_write = new_doc_id + '\t' + str(mention_start_indices[j]) \
                                 + '\t' + str(mention_end_indices[j]) \
                                 + '\t' + str(predicted_entities[j]) \
                                 + '\t' + str(mention_probs[j]) \
                                 + '\t' + 'NA' + '\n'
                 single_process_pred_file.write(pred_write)
+        num_mentions = batch[9].detach().cpu().numpy()[0]
+        gold_mention_start_indices = batch[7].detach().cpu().numpy()[0][:num_mentions]
+        gold_mention_end_indices = batch[8].detach().cpu().numpy()[0][:num_mentions]
+        gold_entities = all_label_candidate_ids[num_mention_processed:num_mention_processed + num_mentions]
+        for j in range(num_mentions):
+            if gold_mention_start_indices[j] > gold_mention_end_indices[j]:
+                continue
+            gold_write = new_doc_id + '\t' + str(gold_mention_start_indices[j]) \
+                            + '\t' + str(gold_mention_end_indices[j]) \
+                            + '\t' + str(gold_entities[j]) \
+                            + '\t' + str(1.0) \
+                            + '\t' + 'NA' + '\n'
+            single_process_gold_file.write(gold_write)
+            
         return num_mentions
 
         
