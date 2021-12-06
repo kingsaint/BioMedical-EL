@@ -158,42 +158,43 @@ def eval_one_batch(args, model, all_entities, all_document_ids, all_label_candid
 
             # Write the gold entities
         num_mentions = batch[9].detach().cpu().numpy()[0]
-        document_ids = all_document_ids[num_mention_processed:num_mention_processed + num_mentions]
-        #logger.info(document_ids)
-        assert all(doc_id == document_ids[0] for doc_id in document_ids)
-        gold_mention_start_indices = batch[7].detach().cpu().numpy()[0][:num_mentions]
-        gold_mention_end_indices = batch[8].detach().cpu().numpy()[0][:num_mentions]
-        gold_entities = all_label_candidate_ids[num_mention_processed:num_mention_processed + num_mentions]
-        for j in range(num_mentions):
-                # if gold_mention_start_indices[j] == gold_mention_end_indices[j]:
-                #     gold_mention_end_indices[j] += 1
-            if gold_mention_start_indices[j] > gold_mention_end_indices[j]:
-                continue
-            gold_write = document_ids[j] + '\t' + str(gold_mention_start_indices[j]) \
-                            + '\t' + str(gold_mention_end_indices[j]) \
-                            + '\t' + str(gold_entities[j]) \
-                            + '\t' + str(1.0) \
-                            + '\t' + 'NA' + '\n'
-            single_process_gold_file.write(gold_write)
+        if num_mentions > 0:
+            document_ids = all_document_ids[num_mention_processed:num_mention_processed + num_mentions]
+            #logger.info(document_ids)
+            assert all(doc_id == document_ids[0] for doc_id in document_ids)
+            gold_mention_start_indices = batch[7].detach().cpu().numpy()[0][:num_mentions]
+            gold_mention_end_indices = batch[8].detach().cpu().numpy()[0][:num_mentions]
+            gold_entities = all_label_candidate_ids[num_mention_processed:num_mention_processed + num_mentions]
+            for j in range(num_mentions):
+                    # if gold_mention_start_indices[j] == gold_mention_end_indices[j]:
+                    #     gold_mention_end_indices[j] += 1
+                if gold_mention_start_indices[j] > gold_mention_end_indices[j]:
+                    continue
+                gold_write = document_ids[j] + '\t' + str(gold_mention_start_indices[j]) \
+                                + '\t' + str(gold_mention_end_indices[j]) \
+                                + '\t' + str(gold_entities[j]) \
+                                + '\t' + str(1.0) \
+                                + '\t' + 'NA' + '\n'
+                single_process_gold_file.write(gold_write)
 
-            # Write the predicted entities
-        doc_id_processed = document_ids[0]
-        num_pred_mentions = len(predicted_entities)
-        mention_start_indices = mention_start_indices.detach().cpu().numpy()
-        mention_end_indices = mention_end_indices.detach().cpu().numpy()
-        mention_probs = pred_mention_span_probs[spans_after_prunning].detach().cpu().numpy()
+                # Write the predicted entities
+            doc_id_processed = document_ids[0]
+            num_pred_mentions = len(predicted_entities)
+            mention_start_indices = mention_start_indices.detach().cpu().numpy()
+            mention_end_indices = mention_end_indices.detach().cpu().numpy()
+            mention_probs = pred_mention_span_probs[spans_after_prunning].detach().cpu().numpy()
 
-        for j in range(num_pred_mentions):
-                # if pred_mention_start_indices[j] == pred_mention_end_indices[j]:
-                #     pred_mention_end_indices[j] += 1
-            if pred_mention_start_indices[j] > pred_mention_end_indices[j]:
-                continue
-            pred_write = doc_id_processed + '\t' + str(mention_start_indices[j]) \
-                            + '\t' + str(mention_end_indices[j]) \
-                            + '\t' + str(predicted_entities[j]) \
-                            + '\t' + str(mention_probs[j]) \
-                            + '\t' + 'NA' + '\n'
-            single_process_pred_file.write(pred_write)
+            for j in range(num_pred_mentions):
+                    # if pred_mention_start_indices[j] == pred_mention_end_indices[j]:
+                    #     pred_mention_end_indices[j] += 1
+                if pred_mention_start_indices[j] > pred_mention_end_indices[j]:
+                    continue
+                pred_write = doc_id_processed + '\t' + str(mention_start_indices[j]) \
+                                + '\t' + str(mention_end_indices[j]) \
+                                + '\t' + str(predicted_entities[j]) \
+                                + '\t' + str(mention_probs[j]) \
+                                + '\t' + 'NA' + '\n'
+                single_process_pred_file.write(pred_write)
         return num_mentions
 
         
