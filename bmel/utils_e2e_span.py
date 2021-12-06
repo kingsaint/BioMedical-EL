@@ -275,6 +275,7 @@ def load_and_cache_examples(
         features = []
         num_longer_docs = 0
         all_document_ids = []
+        raise Exception(all_document_ids)
         all_label_candidate_ids = []
         for (ex_index, document_id) in enumerate(partition(list(mentions.keys()),hvd.size(),hvd.rank())):
             if ex_index % 1000 == 0:
