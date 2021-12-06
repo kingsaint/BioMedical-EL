@@ -115,53 +115,54 @@ def eval_one_batch(args, model, all_entities, all_document_ids, all_label_candid
                     }
         pred_mention_start_indices, pred_mention_end_indices, pred_mention_span_scores, last_hidden_states = model.forward(**doc_input)
         pred_mention_span_probs = torch.sigmoid(pred_mention_span_scores)
-        logger.info(pred_mention_span_probs)
-        logger.info(doc_input["mention_token_ids"])
         spans_after_prunning = torch.where(pred_mention_span_probs >= args.gamma)
         if spans_after_prunning[0].size(0) <= 0:
-            _, spans_after_prunning = torch.topk(pred_mention_span_probs, 8)
+            if pred_mention_span_probs >= 8:
+                _, spans_after_prunning = torch.topk(pred_mention_span_probs, 8)
+        if spans_after_prunning[0].size(0) > 0:
+            mention_start_indices = pred_mention_start_indices[spans_after_prunning]
+            mention_end_indices = pred_mention_end_indices[spans_after_prunning]
+                
+            if args.use_all_candidates:
+                mention_inputs = {"args": args,
+                                    "last_hidden_states": last_hidden_states,
+                                    "mention_start_indices": mention_start_indices.unsqueeze(0),
+                                    # batch[7],  #overlapping_start_indices,
+                                    "mention_end_indices": mention_end_indices.unsqueeze(0),
+                                    # batch[8], # overlapping_end_indices,
+                                    "all_candidate_embeddings": all_candidate_embeddings,
+                                    "mode": 'ned',
+                                    }
+            else:#does not work, --use_all_candidates must be set to true.
+                mention_inputs = {"args": args,
+                                    "last_hidden_states": last_hidden_states,
+                                    "mention_start_indices": mention_start_indices.unsqueeze(0),
+                                    "mention_end_indices": mention_start_indices.unsqueeze(0),
+                                    "candidate_token_ids_1": batch[2],
+                                    "candidate_token_masks_1": batch[3],
+                                    "mode": 'ned',
+                                    }
 
-        mention_start_indices = pred_mention_start_indices[spans_after_prunning]
-        mention_end_indices = pred_mention_end_indices[spans_after_prunning]
+            _, logits = model(**mention_inputs)
+            #logger.info(str(logits))
+            preds = logits.detach().cpu().numpy()
+                # out_label_ids = batch[6]
+                # out_label_ids = out_label_ids.reshape(-1).detach().cpu().numpy()
+                
+            sorted_preds = np.flip(np.argsort(preds), axis=1)
+            #logger.info(str(sorted_preds))
+            predicted_entities = []
+            for i, sorted_pred in enumerate(sorted_preds):
+                predicted_entity_idx = sorted_preds[i][0]
+                predicted_entity = all_entities[predicted_entity_idx]
+                predicted_entities.append(predicted_entity)
+
             
-        if args.use_all_candidates:
-            mention_inputs = {"args": args,
-                                "last_hidden_states": last_hidden_states,
-                                "mention_start_indices": mention_start_indices.unsqueeze(0),
-                                # batch[7],  #overlapping_start_indices,
-                                "mention_end_indices": mention_end_indices.unsqueeze(0),
-                                # batch[8], # overlapping_end_indices,
-                                "all_candidate_embeddings": all_candidate_embeddings,
-                                "mode": 'ned',
-                                }
-        else:#does not work, --use_all_candidates must be set to true.
-            mention_inputs = {"args": args,
-                                "last_hidden_states": last_hidden_states,
-                                "mention_start_indices": mention_start_indices.unsqueeze(0),
-                                "mention_end_indices": mention_start_indices.unsqueeze(0),
-                                "candidate_token_ids_1": batch[2],
-                                "candidate_token_masks_1": batch[3],
-                                "mode": 'ned',
-                                }
-
-        _, logits = model(**mention_inputs)
-        #logger.info(str(logits))
-        preds = logits.detach().cpu().numpy()
-            # out_label_ids = batch[6]
-            # out_label_ids = out_label_ids.reshape(-1).detach().cpu().numpy()
-            
-        sorted_preds = np.flip(np.argsort(preds), axis=1)
-        #logger.info(str(sorted_preds))
-        predicted_entities = []
-        for i, sorted_pred in enumerate(sorted_preds):
-            predicted_entity_idx = sorted_preds[i][0]
-            predicted_entity = all_entities[predicted_entity_idx]
-            predicted_entities.append(predicted_entity)
-
-            # Write the gold entities
         num_mentions = batch[9].detach().cpu().numpy()[0]
+        document_ids = all_document_ids[num_mention_processed:num_mention_processed + num_mentions]
         if num_mentions > 0:
-            document_ids = all_document_ids[num_mention_processed:num_mention_processed + num_mentions]
+            # Write the gold entities
+            
             #logger.info(document_ids)
             assert all(doc_id == document_ids[0] for doc_id in document_ids)
             gold_mention_start_indices = batch[7].detach().cpu().numpy()[0][:num_mentions]
@@ -178,10 +179,14 @@ def eval_one_batch(args, model, all_entities, all_document_ids, all_label_candid
                                 + '\t' + str(1.0) \
                                 + '\t' + 'NA' + '\n'
                 single_process_gold_file.write(gold_write)
-
-                # Write the predicted entities
-            doc_id_processed = document_ids[0]
+        if spans_after_prunning[0].size(0) > 0:
+            # Write the predicted entities
             num_pred_mentions = len(predicted_entities)
+            if len(document_ids) == 0:
+                doc_id_processed = "NO_GOLD_MENTIONS"
+            else:
+                doc_id_processed = document_ids[0]
+            
             mention_start_indices = mention_start_indices.detach().cpu().numpy()
             mention_end_indices = mention_end_indices.detach().cpu().numpy()
             mention_probs = pred_mention_span_probs[spans_after_prunning].detach().cpu().numpy()
