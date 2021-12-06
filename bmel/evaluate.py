@@ -120,7 +120,7 @@ def eval_one_batch(args, model, all_entities, all_document_ids, all_label_candid
         if spans_after_prunning[0].size(0) <= 0:
             if pred_mention_span_probs[0].size(0) >= 8:
                 _, spans_after_prunning = torch.topk(pred_mention_span_probs, 8)
-        if spans_after_prunning[0].size(0) > 0:
+        if spans_after_prunning.size(0) > 0:
             mention_start_indices = pred_mention_start_indices[spans_after_prunning]
             mention_end_indices = pred_mention_end_indices[spans_after_prunning]
                 
