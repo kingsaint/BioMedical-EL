@@ -48,6 +48,7 @@ def load_data(data_dir, mode):
     else:
         entity_path = './data/MM_full_CUI/raw_data/entities.txt'
     entities = {}
+    
     with open(entity_path, encoding='utf-8') as f:
         for line in f:
             if 'BC5CDR' in data_dir or 'trendnet' in data_dir:
@@ -55,6 +56,7 @@ def load_data(data_dir, mode):
             else:
                 e, _, text = line.strip().split('\t')
             entities[e] = text
+    mode ='train'
     file_path = os.path.join(data_dir, mode, 'documents/documents.json')
     docs = {}
     with open(file_path, encoding='utf-8') as f:
@@ -63,7 +65,7 @@ def load_data(data_dir, mode):
             fields = json.loads(line.strip())
             docs[fields["document_id"]] = {"text": fields["text"]}
         print("documents dataset is done :)")
-
+    
     # doc_ids = list(docs.keys())
     file_path = os.path.join(data_dir, mode, 'mentions/mentions.json')
     ments = {}
