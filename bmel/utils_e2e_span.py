@@ -56,7 +56,6 @@ def load_data(data_dir, mode):
             else:
                 e, _, text = line.strip().split('\t')
             entities[e] = text
-    #mode ='train'
     file_path = os.path.join(data_dir, mode, 'documents/documents.json')
     docs = {}
     with open(file_path, encoding='utf-8') as f:
@@ -230,8 +229,7 @@ def load_and_cache_examples(
 ):  
 
     max_seq_length=args.max_seq_length
-    mode = 'train'
-    #mode = 'train' if args.do_train else 'test'
+    mode = 'train' if args.do_train else 'test'
     # Load data features from cache or dataset file
     cached_features_file = os.path.join(
     args.data_dir,
@@ -280,7 +278,7 @@ def load_and_cache_examples(
                 path = args.resume_path
             else:
                 path = args.output_dir
-            if os.path.exists(os.path.join(path, 'mention_hard_negatives.json')):
+            if os.path.exists(os.path.join(path, 'mention_hard_negatives.json')) and not args.overwrite_hard_negatives:
                 with open(os.path.join(path, 'mention_hard_negatives.json')) as f_hn:
                     mention_hard_negatives = json.load(f_hn)
             else:
