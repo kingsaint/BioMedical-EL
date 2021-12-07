@@ -43,7 +43,7 @@ def load_data(data_dir, mode):
     elif 'dummy' in data_dir:
         entity_path = './data/dummy_data/raw_data/entities.txt'
     elif 'trendnet' in data_dir:
-        entity_path = "/dbfs/Workspace/Repos/cflowers@trend.community/BioMedical-EL/data/trendnet/processed_data/entities.txt"
+        entity_path = "/dbfs/Workspace/Repos/cflowers@trend.community/BioMedical-EL/data/trendnet/processed_data/easy_entities.txt"
         mlflow.log_param("dataset","trendnet")
     else:
         entity_path = './data/MM_full_CUI/raw_data/entities.txt'
