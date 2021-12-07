@@ -43,7 +43,7 @@ def load_data(data_dir, mode):
     elif 'dummy' in data_dir:
         entity_path = './data/dummy_data/raw_data/entities.txt'
     elif 'trendnet' in data_dir:
-        entity_path = "/dbfs/Workspace/Repos/cflowers@trend.community/BioMedical-EL/data/trendnet/processed_data/very_easy_entities.txt"
+        entity_path = "/dbfs/Workspace/Repos/cflowers@trend.community/BioMedical-EL/data/trendnet/processed_data/entities.txt"
         mlflow.log_param("dataset","trendnet")
     else:
         entity_path = './data/MM_full_CUI/raw_data/entities.txt'
@@ -56,7 +56,7 @@ def load_data(data_dir, mode):
             else:
                 e, _, text = line.strip().split('\t')
             entities[e] = text
-    mode ='train'
+    #mode ='train'
     file_path = os.path.join(data_dir, mode, 'documents/documents.json')
     docs = {}
     with open(file_path, encoding='utf-8') as f:
@@ -230,7 +230,8 @@ def load_and_cache_examples(
 ):  
 
     max_seq_length=args.max_seq_length
-    mode = 'train' if args.do_train else 'test'
+    mode = 'train'
+    #mode = 'train' if args.do_train else 'test'
     # Load data features from cache or dataset file
     cached_features_file = os.path.join(
     args.data_dir,
