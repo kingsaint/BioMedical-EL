@@ -221,8 +221,8 @@ def get_args(dict_args = None):
     )
     parser.add_argument("--seed", type=int, default=42, help="random seed for initialization")
 
-    parser.add_argument(parser.add_argument("--overwrite_hard_negatives", type=bool, default=True, help="Model will start without prepopulated hard negatives."
-    ))
+    parser.add_argument("--overwrite_hard_negatives", type=bool, default=True, help="Model will start without prepopulated hard negatives."
+    )
 
     parser.add_argument(
         "--fp16",
