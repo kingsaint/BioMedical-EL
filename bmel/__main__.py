@@ -284,7 +284,7 @@ def main(db_token,args=None):
                     mlflow.log_param(arg_name,arg_value)
             args.active_run_id = run.info.run_id
             args.db_token = db_token
-            hr = HorovodRunner(np=args.n_gpu,driver_log_verbosity='log_callback_only') 
+            hr = HorovodRunner(np=args.n_gpu,driver_log_verbosity='all') 
             hr.run(train_hvd, args=args)
     if args.do_eval:
         
@@ -305,7 +305,7 @@ def main(db_token,args=None):
                         mlflow.log_param(arg_name,arg_value)
                 args.active_run_id = run.info.run_id
                 args.db_token = db_token
-                hr = HorovodRunner(np=args.n_gpu,driver_log_verbosity='log_callback_only') 
+                hr = HorovodRunner(np=args.n_gpu,driver_log_verbosity='all') 
                 hr.run(eval_hvd, args=args)
 
     
