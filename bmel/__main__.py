@@ -242,7 +242,7 @@ def get_args(dict_args = None):
     parser.add_argument("--server_ip", type=str, default="", help="For distant debugging.")
     parser.add_argument("--server_port", type=str, default="", help="For distant debugging.")
     parser.add_argument("--experiment_dir", type=str, default="", help="To log parameters and metrics.")
-    parser.add_argument("--kb_size", default="full", type=float, help="Select from 'easy','very_easy' or 'full'."
+    parser.add_argument("--kb_size", default="full", type=str, help="Select from 'easy','very_easy' or 'full'."
     )
     list_args = []
     if dict_args != None:
