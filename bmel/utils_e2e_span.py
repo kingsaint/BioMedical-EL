@@ -29,7 +29,7 @@ def get_comm_magic():
       comm = MPI.COMM_WORLD
     return comm
 
-def load_data(data_dir, mode):
+def load_data(data_dir,kb_size, mode):
     logger.info("***getting data***")
     if 'NCBI' in data_dir:
         entity_path = './data/NCBI_Disease/raw_data/entities.txt'
@@ -43,8 +43,15 @@ def load_data(data_dir, mode):
     elif 'dummy' in data_dir:
         entity_path = './data/dummy_data/raw_data/entities.txt'
     elif 'trendnet' in data_dir:
-        entity_path = "/dbfs/Workspace/Repos/cflowers@trend.community/BioMedical-EL/data/trendnet/processed_data/very_easy_entities.txt"
-        mlflow.log_param("dataset","trendnet")
+        if kb_size == "full":
+            entity_path = "/dbfs/Workspace/Repos/cflowers@trend.community/BioMedical-EL/data/trendnet/processed_data/entities.txt"
+            mlflow.log_param("dataset","full_trendnet")
+        elif kb_size == "easy":
+            entity_path = "/dbfs/Workspace/Repos/cflowers@trend.community/BioMedical-EL/data/trendnet/processed_data/easy_entities.txt"
+            mlflow.log_param("dataset","easy_trendnet")
+        elif kb_size == "very_easy":
+            entity_path = "/dbfs/Workspace/Repos/cflowers@trend.community/BioMedical-EL/data/trendnet/processed_data/very_easy_entities.txt"
+            mlflow.log_param("dataset","very_easy_trendnet")
     else:
         entity_path = './data/MM_full_CUI/raw_data/entities.txt'
     entities = {}
@@ -238,7 +245,7 @@ def load_and_cache_examples(
         list(filter(None, args.base_model_name_or_path.split("/"))).pop()),
     )
     if not os.path.exists(cached_features_file) or args.overwrite_cache:
-        mentions, docs, entities = load_data(args.data_dir, mode)
+        mentions, docs, entities = load_data(args.data_dir, args.kb_size, mode)
         all_entities = list(entities.keys())
         all_entity_token_ids = []
         all_entity_token_masks = []

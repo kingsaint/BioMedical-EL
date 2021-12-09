@@ -21,7 +21,8 @@ EVAL_ARGS = {
                     "seed",
                     "gamma_lower",
                     "gamma_upper",
-                    "gamma_step"
+                    "gamma_step",
+                    "kb_size"
                 }   
 TRAINING_ARGS = {   
                     "lambda_1",
@@ -47,7 +48,8 @@ TRAINING_ARGS = {
                     "overwrite_hard_negatives",
                     "seed",
                     "resume_path",
-                    "overwrite_cache"
+                    "overwrite_cache",
+                    "kb_size"
                 }  
 def get_args(dict_args = None):
 
@@ -240,6 +242,8 @@ def get_args(dict_args = None):
     parser.add_argument("--server_ip", type=str, default="", help="For distant debugging.")
     parser.add_argument("--server_port", type=str, default="", help="For distant debugging.")
     parser.add_argument("--experiment_dir", type=str, default="", help="To log parameters and metrics.")
+    parser.add_argument("--kb_size", default="full", type=float, help="Select from 'easy','very_easy' or 'full'."
+    )
     list_args = []
     if dict_args != None:
       for key,value in dict_args.items():
