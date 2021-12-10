@@ -302,15 +302,16 @@ def main(db_token,args=None):
         if not args.eval_all_checkpoints:
             checkpoints = [checkpoints[-1]]
         for checkpoint in checkpoints:
-            args.output_dir = checkpoint
             with mlflow.start_run() as run:
-                for arg_name,arg_value in args.__dict__.items():
-                    if arg_name in EVAL_ARGS:
-                        mlflow.log_param(arg_name,arg_value)
-                args.active_run_id = run.info.run_id
-                args.db_token = db_token
-                hr = HorovodRunner(np=args.n_gpu,driver_log_verbosity='all') 
-                hr.run(eval_hvd, args=args)
+                args.output_dir = checkpoint
+                with mlflow.start_run(run_id = run.info.run_id):
+                    for arg_name,arg_value in args.__dict__.items():
+                        if arg_name in EVAL_ARGS:
+                            mlflow.log_param(arg_name,arg_value)
+                    args.active_run_id = run.info.run_id
+                    args.db_token = db_token
+                    hr = HorovodRunner(np=args.n_gpu,driver_log_verbosity='all') 
+                    hr.run(eval_hvd, args=args)
 
     
 
