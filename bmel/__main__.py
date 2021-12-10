@@ -302,8 +302,8 @@ def main(db_token,args=None):
         if not args.eval_all_checkpoints:
             checkpoints = [checkpoints[-1]]
         for checkpoint in checkpoints:
-            mlflow.log_param("checkpoint",checkpoint.split("-")[-1])
             with mlflow.start_run() as run:
+                mlflow.log_param("checkpoint",checkpoint.split("-")[-1])
                 args.output_dir = checkpoint
                 with mlflow.start_run(experiment_id=args.experiment_id,nested=True):
                     for arg_name,arg_value in args.__dict__.items():
