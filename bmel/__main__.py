@@ -304,7 +304,7 @@ def main(db_token,args=None):
         for checkpoint in checkpoints:
             with mlflow.start_run() as run:
                 args.output_dir = checkpoint
-                with mlflow.start_run(run_id = run.info.run_id):
+                with mlflow.start_run(experiment_id=args.experiment_id,nested=True):
                     for arg_name,arg_value in args.__dict__.items():
                         if arg_name in EVAL_ARGS:
                             mlflow.log_param(arg_name,arg_value)
