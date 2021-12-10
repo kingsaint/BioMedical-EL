@@ -91,7 +91,7 @@ def eval_hvd(args, prefix=""):
                         all_files = glob.glob(os.path.join(gamma_dir, f"{file_type}_[0-9]*.csv"))
                         all_together_file_paths[file_type]= os.path.join(gamma_dir,f"{file_type}_ALL.csv")
                         df_from_each_file = (pd.read_csv(f, sep='\t',header=None,index_col=False) for f in all_files if os.stat(f).st_size != 0)
-                        print(len(df_from_each_file))
+                        logger.info(df_from_each_file)
                         if df_from_each_file:
                             df_merged = pd.concat(df_from_each_file)
                             df_merged.to_csv(all_together_file_paths[file_type],sep="\t",header=False,index=False,na_rep='NA')
