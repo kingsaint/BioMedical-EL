@@ -298,7 +298,7 @@ def main(db_token,args=None):
         args.experiment_id = experiment.experiment_id
         if not args.eval_all_checkpoints:
             checkpoints = list(
-                os.path.dirname(c) for c in sorted(glob.glob(args.output_dir + "/**/" + "checkpoint-[0-9].-FINAL/", recursive=True))
+                os.path.dirname(c) for c in sorted(glob.glob(args.output_dir + "/**/" + "checkpoint-[0-9]*-FINAL/", recursive=True))
             )
         else:
             checkpoints = list(
@@ -308,11 +308,11 @@ def main(db_token,args=None):
         def checkpoint_number(file_name):
             split_fn = file_name.split("-")
             if split_fn[-1] == "FINAL":
-                return split_fn[-2]
+                return int(split_fn[-2])
             else:
-                return split_fn[-1]
+                return int(split_fn[-1])
 
-        for checkpoint in checkpoints.sort(key=checkpoint_number):
+        for checkpoint in sorted(checkpoints,key=checkpoint_number):
             with mlflow.start_run() as run:
                 mlflow.log_param("checkpoint",checkpoint.split("-")[-1])
                 args.output_dir = checkpoint
