@@ -296,11 +296,16 @@ def main(db_token,args=None):
         mlflow.set_experiment(args.experiment_name)
         experiment = mlflow.get_experiment_by_name(args.experiment_name)
         args.experiment_id = experiment.experiment_id
-        checkpoints = list(
+        if not args.eval_all_checkpoints:
+            checkpoints = list(
+                os.path.dirname(c) for c in sorted(glob.glob(args.output_dir + "/**/" + "checkpoint-[0-9].-FINAL/", recursive=True))
+            )
+        else:
+            checkpoints = list(
                 os.path.dirname(c) for c in sorted(glob.glob(args.output_dir + "/**/" + "checkpoint**/", recursive=True))
             )
-        if not args.eval_all_checkpoints:
-            checkpoints = [checkpoints[-1]]
+        print(checkpoints)
+        
         for checkpoint in checkpoints:
             with mlflow.start_run() as run:
                 mlflow.log_param("checkpoint",checkpoint.split("-")[-1])
