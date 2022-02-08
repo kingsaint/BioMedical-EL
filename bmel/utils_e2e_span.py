@@ -448,8 +448,6 @@ def load_and_cache_examples(
                                 c = all_entities[c_idx]
                                 if not c == m["label_candidate_id"] and c not in mention_hard_negatives[mention_id]:
                                         mention_hard_negatives[mention_id].append(c)
-
-                        candidates_2 = []
                         # candidates_2.append(label_candidate_id)  # positive candidate
                         # Append hard negative candidates
                         for m_idx, m in enumerate(mentions[document_id]):
@@ -573,7 +571,7 @@ def load_and_cache_examples(
                     if label_candidate_ids[m_idx] in m_candidates:
                         label_ids[m_idx] = m_candidates.index(label_candidate_ids[m_idx])
                     else:
-                        label_ids[m_idx] = -100 # when target candidate not in candidate set
+                        label_ids[m_idx] = -100 # whffen target candidate not in candidate set
 
             # Pad the mention start and end indices
             mention_start_indices = [0] * args.num_max_mentions
