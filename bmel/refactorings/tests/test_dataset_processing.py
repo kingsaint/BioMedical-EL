@@ -3,20 +3,17 @@
 # from ..data import *
 # import pytest
 # from lkb.lexical_knowledge_base import *
-# @pytest.fixture
-# def example():
-#     text = "This is a good example of a test sentence."
-#     doc_id = "123456"
-#     span_dicts = [{"start_index":15,"end_index":21,"concept_id":"C123456"},
-#                   {"start_index":15,"end_index":40,"concept_id":"C11111"},
-#                   {"start_index":0,"end_index":3,"concept_id":"C222222"}
-#                 ]
-#     concepts = Concept()
-#     knowledge_data = Knowledge_Data(concepts,terms,conceptual_edges,lexical_edges,conceptual_relations)
-#     knowledge_data = {"C222222":["This"],
-#           "C11111":["Ex","Eg","Example"]
-#         }
-#     return {"text":text,"span_dicts":span_dicts,"knowledge_data":knowledge_data}
+from fixtures import doc_dataset
+
+def test_document_creation(doc_dataset):
+    text,
+
+
+
+
+
+
+
     
 
 # def test_linked_message_creation(example):

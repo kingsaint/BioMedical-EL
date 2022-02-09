@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from misc.hashdict import hashdict
+import dataclasses, json
+from dataclasses_json import dataclass_json
 
 @dataclass(frozen=True)
 class Mention():
@@ -48,8 +49,7 @@ class No_Overlap_Displayer(Displayer):
 @dataclass(frozen=True)
 class Concept:
     id: str
-    info: hashdict
-
+    info: dict
 @dataclass(frozen=True)
 class Term:
     id: str
@@ -73,9 +73,22 @@ class Conceptual_Relation:
 
 @dataclass(frozen=True)
 class Knowledge_Data:#Intended to be a single data format for sparse storage. Used to initialize an LKB
-    concepts: set[Concept]
-    terms: set[Term]
-    conceptual_edges: set[Conceptual_Edge]
-    lexical_edges: set[Lexical_Edge]
-    conceptual_relations: set[Conceptual_Relation]
-        
+    concepts: list[Concept]
+    terms: list[Term]
+    conceptual_edges: list[Conceptual_Edge]
+    lexical_edges: list[Lexical_Edge]
+    conceptual_relations: list[Conceptual_Relation]
+    def write_json(self,file_path):
+        with open(file_path, 'w') as outfile:
+            dictionary = dataclasses.asdict(self)
+            json.dump(dictionary,outfile,indent = 2)
+    @classmethod
+    def read_json(cls,file_path):
+        with open(file_path, 'r') as infile:
+            dictionary = json.load(infile)
+            concepts = [Concept(**concept) for concept in dictionary["concepts"]]
+            terms = [Term(**term) for term in dictionary["terms"]]
+            conceptual_edges = [Conceptual_Edge(**conceptual_edge) for conceptual_edge in dictionary["conceptual_edges"]]
+            lexical_edges = [Lexical_Edge(**lexical_edge) for lexical_edge in dictionary["lexical_edges"]]
+            conceptual_relations = [Conceptual_Relation(**conceptual_relation) for conceptual_relation in dictionary["conceptual_relations"]]
+            return cls(concepts,terms,conceptual_edges,lexical_edges,conceptual_relations)

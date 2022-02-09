@@ -8,6 +8,7 @@ from misc.hashdict import hashdict
 from data import *
 
 
+
 class Basic_Lexical_Knowledge_Base:#Good for simple queries, 
     def __init__(self,data):
         self.id_to_concept = {concept.id:concept for concept in data.concepts}
@@ -52,7 +53,6 @@ class Basic_Lexical_Knowledge_Base:#Good for simple queries,
             for term_id in term_ids:
                 lexical_edges.add(Lexical_Edge(concept_id,term_id))
         return Knowledge_Data(concepts,terms,conceptual_edges,lexical_edges,conceptual_relations)
-
 class RDF_Lexical_Knowledge_Base:#good for complex,possibly recursive queries.
     def __init__(self,data):
         g = Graph()
