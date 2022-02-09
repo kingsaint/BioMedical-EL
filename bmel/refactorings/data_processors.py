@@ -1,6 +1,6 @@
 from __future__ import annotations
 from collections import defaultdict
-from Dataset import *
+from data import Document,Mention
 from dataclasses import dataclass
 
 from refactorings.lkb.lexical_knowledge_base import Knowledge_Data

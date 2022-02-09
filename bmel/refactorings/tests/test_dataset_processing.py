@@ -2,24 +2,28 @@ test_with_pytest.py
 from dataclasses import asdict
 from datasets import *
 import pytest
+from lkb.lexical_knowledge_base import *
 @pytest.fixture
 def example():
     text = "This is a good example of a test sentence."
-    span_dicts = [{"start_index":15,"end_index":21,"kb_entity_identifier":"C123456"},
-                      {"start_index":15,"end_index":40,"kb_entity_identifier":"C11111"},
-                      {"start_index":0,"end_index":3,"kb_entity_identifier":"C222222"}
+    doc_id = "123456"
+    span_dicts = [{"start_index":15,"end_index":21,"concept_id":"C123456"},
+                  {"start_index":15,"end_index":40,"concept_id":"C11111"},
+                  {"start_index":0,"end_index":3,"concept_id":"C222222"}
                 ]
-    kb = {"C222222":["This"],
+    concepts = Concept()
+    knowledge_data = Knowledge_Data(concepts,terms,conceptual_edges,lexical_edges,conceptual_relations)
+    knowledge_data = {"C222222":["This"],
           "C11111":["Ex","Eg","Example"]
         }
-    return {"text":text,"span_dicts":span_dicts,"kb":kb}
+    return {"text":text,"span_dicts":span_dicts,"knowledge_data":knowledge_data}
     
 
 def test_linked_message_creation(example):
     correctly_produced_dict = {"text":"This is a good example of a test sentence.",
-                                "spans": [{"start_index":0,"end_index":3,"kb_entity_identifier":"C222222"},
-                                          {"start_index":15,"end_index":21,"kb_entity_identifier":"C123456"},
-                                        {"start_index":15,"end_index":40,"kb_entity_identifier":"C11111"}
+                                "spans": [{"start_index":0,"end_index":3,"concept_id":"C222222"},
+                                          {"start_index":15,"end_index":21,"concept_id":"C123456"},
+                                        {"start_index":15,"end_index":40,"concept_id":"C11111"}
                                         ]
                                 }
     
@@ -28,8 +32,8 @@ def test_linked_message_creation(example):
 
 def test_overlap_removal(example):
     correctly_produced_dict = {"text":"This is a good example of a test sentence.",
-                            "spans": [{"start_index":0,"end_index":3,"kb_entity_identifier":"C222222"},
-                                      {"start_index":15,"end_index":40,"kb_entity_identifier":"C11111"}
+                            "spans": [{"start_index":0,"end_index":3,"concept_id":"C222222"},
+                                      {"start_index":15,"end_index":40,"concept_id":"C11111"}
                                 ]
                             }
 
@@ -45,9 +49,9 @@ def test_overlap_check(example):
 
 def test_dataset_creation(example):
     correctly_produced_dict = {"linked_messages":[{"text":"This is a good example of a test sentence.",
-                                                   "spans": [{"start_index":0,"end_index":3,"kb_entity_identifier":"C222222"},
-                                                            {"start_index":15,"end_index":21,"kb_entity_identifier":"C123456"},
-                                                            {"start_index":15,"end_index":40,"kb_entity_identifier":"C11111"}
+                                                   "spans": [{"start_index":0,"end_index":3,"concept_id":"C222222"},
+                                                            {"start_index":15,"end_index":21,"concept_id":"C123456"},
+                                                            {"start_index":15,"end_index":40,"concept_id":"C11111"}
                                                             ]
                                                   }
                                                 ],
@@ -59,8 +63,8 @@ def test_dataset_creation(example):
 
 def test_no_overlap_dataset_creation(example):
     correctly_produced_dict = {"linked_messages":[{"text":"This is a good example of a test sentence.",
-                                                   "spans": [{"start_index":0,"end_index":3,"kb_entity_identifier":"C222222"},
-                                                            {"start_index":15,"end_index":40,"kb_entity_identifier":"C11111"}
+                                                   "spans": [{"start_index":0,"end_index":3,"concept_id":"C222222"},
+                                                            {"start_index":15,"end_index":40,"concept_id":"C11111"}
                                                    ]
                                                   }
                                                 ],
@@ -71,8 +75,8 @@ def test_no_overlap_dataset_creation(example):
     
 def test_get_verbose(example):
     correctly_produced_dict = {"linked_messages":[{"text":"This is a good example of a test sentence.",
-                                                   "spans": [{"start_index":0,"end_index":3,"kb_entity_identifier":"C222222","span_text": "This","concept_names":["This"]},
-                                                            {"start_index":15,"end_index":40,"kb_entity_identifier":"C11111","span_text": "example of a test sentence","concept_names":["Ex","Eg","Example"]}
+                                                   "spans": [{"start_index":0,"end_index":3,"concept_id":"C222222","span_text": "This","concept_names":["This"]},
+                                                            {"start_index":15,"end_index":40,"concept_id":"C11111","span_text": "example of a test sentence","concept_names":["Ex","Eg","Example"]}
                                                    ]
                                                   }
                                                 ],

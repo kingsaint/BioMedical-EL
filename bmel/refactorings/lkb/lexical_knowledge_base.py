@@ -1,77 +1,15 @@
 from __future__ import annotations
-from argparse import ArgumentError
 from dataclasses import dataclass
-import json
 from collections import defaultdict
-from rdflib import Graph, URIRef, Literal, BNode, Namespace, term
+from rdflib import Graph, URIRef, Literal, Namespace
 from rdflib.namespace import RDF,XSD,RDFS
 from rdflib.plugins import sparql
-from click import Argument
+from hashdict import hashdict
+from ..data import *
 
 
-@dataclass(frozen=True)
-class Concept:
-    id: str
-    info: dict
-
-@dataclass(frozen=True)
-class Term:
-    id: str
-    string: str
-
-@dataclass(frozen=True)
-class Conceptual_Edge:
-    concept_id_1: str
-    concept_id_2: str
-    rel_id: str
-
-@dataclass(frozen=True)
-class Lexical_Edge:
-    concept_id: str
-    term_id: str
-
-@dataclass(frozen=True)
-class Conceptual_Relation:
-    id: str
-    string: str #relation name
-
-@dataclass(frozen=True)
-class Knowledge_Data:#Intended to be a single data format for sparse storage. Used to initialize and LKB
-    concepts: list[Concept]
-    terms: list[Term]
-    conceptual_edges: list[Conceptual_Edge]
-    lexical_edges: list[Lexical_Edge]
-    conceptual_relations: list[Conceptual_Relation]
-
-class Lexical_Knowledge_Base:#Base Class; Intended to be the class that handles queries on the data and editing of knowledge data
+class Basic_Lexical_Knowledge_Base:#Good for simple queries, 
     def __init__(self,data):
-        raise NotImplementedError
-    def get_concept(self,concept_id:str):
-        raise NotImplementedError
-    def get_term(self,term_id):
-        raise NotImplementedError
-    def get_forward_edges(self,concept_id:str):
-        raise NotImplementedError
-    def get_backward_edges(self,concept_id):
-        raise NotImplementedError
-    def get_terms_from_concept_id(self,concept_id:str):
-        raise NotImplementedError
-    def get_concepts_from_term_info(self,term_id:str):
-        raise NotImplementedError
-    def add_concept(self,concept):
-        raise NotImplementedError
-    def add_term(self,term):
-        raise NotImplementedError
-    def add_conceptual_relation(self,conceptual_relation):
-        raise NotImplementedError
-    def add_conceptual_edge(self,concept_id_1,concept_id_2,relation_id):
-        raise NotImplementedError
-    def add_lexical_edge(self,concept_id, term_id): 
-        raise NotImplementedError
-
-class Basic_Lexical_Knowledge_Base(Lexical_Knowledge_Base):
-    def __init__(self,data):
-        #not storage efficient
         self.id_to_concept = {concept.id:concept for concept in data.concepts}
         self.id_to_term= {term.id:term for term in data.terms}
         self.id_to_concept_relations = {relation.id:relation for relation in data.conceptual_relations}
@@ -101,43 +39,41 @@ class Basic_Lexical_Knowledge_Base(Lexical_Knowledge_Base):
         return [self.get_term(term_id) for term_id in self.concept_id_to_term_ids[concept_id]]
     def get_concepts_from_term_id(self,term_id:str):
         return [self.get_concept(term_id) for term_id in self.term_id_to_concept_ids[term_id]]
-    def add_concept(self,concept):
-        self.id_to_concept[concept.id] = concept 
-    def add_term(self,term):
-        self.id_to_concept[term.id] = term 
-    def add_conceptual_relation(self,conceptual_relation):
-        assert conceptual_relation.id not in self.id_to_concept_relations.keys()
-        self.id_to_concept_relations[conceptual_relation.id] = conceptual_relation
-    def add_conceptual_edge(self,concept_id_1,concept_id_2,relation_id = None, relation_name= None):
-        if not relation_id:
-            if not relation_name: 
-                raise ArgumentError
-            else:
-                relation = self.concept_relation_name_to_concept_relation[relation_name]
-        else:
-            relation = self.id_to_concept_relations[relation_id]
-        self.forward_conceptual_edges[concept_id_1].append(Conceptual_Edge(concept_id_1,concept_id_2,relation))
-        self.backward_conceptual_edges[concept_id_2].append(Conceptual_Edge(concept_id_1,concept_id_2,relation))
-    def add_lexical_edge(self,concept_id, term_id): 
-        self.concept_id_to_term_ids[concept_id].append(term_id)
-        self.term_ids_to_concept_ids[term_id].append(concept_id)
+    def get_data(self):
+        concepts =  set(self.id_to_concept.values())
+        terms = set(self.id_to_term.values())
+        conceptual_relations = set(self.id_to_concept_relations.values())
+        conceptual_edges = set()
+        for concept_id_1, related_concepts in self.forward_conceptual_edges.items():
+            for rel,concept_2 in related_concepts:
+                conceptual_edges.add(Conceptual_Edge(concept_id_1,concept_2.id,rel.id))
+        lexical_edges = set()
+        for concept_id,term_ids in self.concept_id_to_term_ids.items():
+            for term_id in term_ids:
+                lexical_edges.add(Lexical_Edge(concept_id,term_id))
+        return Knowledge_Data(concepts,terms,conceptual_edges,lexical_edges,conceptual_relations)
 
-class RDF_Lexical_Knowledge_Base(Lexical_Knowledge_Base):
+class RDF_Lexical_Knowledge_Base:#good for complex,possibly recursive queries.
     def __init__(self,data):
         g = Graph()
+        self.id_to_concept = {concept.id:concept for concept in data.concepts}
+        self.id_to_term= {term.id:term for term in data.terms}
+        self.id_to_concept_relations = {relation.id:relation for relation in data.conceptual_relations}
         g.parse("lkb_vocab.ttl")
         VOCAB = Namespace('http://id.trendnet/vocab#')
         LKB = Namespace('http://id.trendnet/lkb/')
         g.bind('http://id.trendnet/vocab#', VOCAB)
         g.bind('http://id.trendnet/lkb/',LKB)
-        for concept_attr_name,concept_attr in data.concepts[0].info.items():
-            g.add((URIRef(f'http://id.trendnet/vocab#{concept_attr_name}'),RDF.type,VOCAB.Additional_Concept_Attribute))
-            g.add((URIRef(f'http://id.trendnet/vocab#{concept_attr_name}'),RDFS.label,Literal(concept_attr_name)))
+        concept_attr_names = set()
         for concept in data.concepts:
             concept_uri =  URIRef(f"http://id.trendnet/lkb/Concept/{concept.id}")
             g.add((concept_uri,RDF.type,VOCAB.Concept))
             g.add((concept_uri,VOCAB.id,Literal(concept.id, datatype=XSD.string)))
             for concept_attr_name,concept_attr in concept.info.items():
+                if concept_attr_name not in concept_attr_names:
+                    concept_attr_names.add(concept_attr_name)
+                    g.add((URIRef(f'http://id.trendnet/vocab#{concept_attr_name}'),RDF.type,VOCAB.Additional_Concept_Attribute))
+                    g.add((URIRef(f'http://id.trendnet/vocab#{concept_attr_name}'),RDFS.label,Literal(concept_attr_name)))
                 g.add((concept_uri,URIRef(f'http://id.trendnet/vocab#{concept_attr_name}'),Literal(concept_attr)))
         for term in data.terms:
             term_uri =  URIRef(f"http://id.trendnet/lkb/Term/{term.id}")
@@ -160,39 +96,12 @@ class RDF_Lexical_Knowledge_Base(Lexical_Knowledge_Base):
             g.add((concept_uri,VOCAB.vocab_term,term_uri))
         self.g = g
         self.VOCAB = VOCAB
-        
     def get_concept(self,concept_id:str):
-        q = """
-            SELECT ?attr_label ?attr WHERE {?concept VOCAB:id ?id . 
-                                            ?concept ?attr_name ?attr . 
-                                            ?attr_name RDF:type VOCAB:Additional_Concept_Attribute .
-                                            ?attr_name RDFS:label ?attr_label .
-                                            ?concept RDF:type VOCAB:Concept 
-                                            }
-        """
-        qres = self.sparql_query(q,initBindings={'id':Literal(concept_id, datatype=XSD.string)})
-        return Concept(id = concept_id, info = {str(row.attr_label):term._castLexicalToPython(row.attr, row.attr.datatype) for row in qres})
-
+        return self.id_to_concept[concept_id]
     def get_term(self,term_id):
-        q = """
-            SELECT ?str WHERE {?term VOCAB:id ?id .
-                              ?term VOCAB:string ?str .
-                              ?term RDF:type VOCAB:Term
-                              }
-        """
-        qres = self.sparql_query(q,initBindings={'id':Literal(term_id, datatype=XSD.string)})
-        for row in qres:
-            return Term(id = term_id, string = str(row.str))
+        return self.id_to_term[term_id]
     def get_relation(self,rel_id):
-        q = """
-            SELECT ?str WHERE {?relation VOCAB:id ?id .
-                               ?relation VOCAB:string ?str .
-                               ?relation RDF:type VOCAB:Concept_Relation
-                               }
-        """
-        qres = self.sparql_query(q,initBindings={'id':Literal(rel_id, datatype=XSD.string)})
-        for row in qres:
-            return Conceptual_Relation(id = rel_id, string = str(row.str))
+        return self.id_to_concept_relations[rel_id]
     def get_forward_edges(self,subject_concept_id:str):
         q = """
             SELECT ?object_id ?rel_id WHERE {?subject_concept ?concept_relation ?object_concept .
@@ -233,19 +142,36 @@ class RDF_Lexical_Knowledge_Base(Lexical_Knowledge_Base):
         """
         qres = self.sparql_query(q,initBindings={'term_id':Literal(term_id, datatype=XSD.string)})
         return [self.get_concept(str(row.concept_id)) for row in qres]
-    def add_concept(self,concept):
-        raise NotImplementedError
-    def add_term(self,term):
-        raise NotImplementedError
-    def add_conceptual_relation(self,conceptual_relation):
-        raise NotImplementedError
-    def add_conceptual_edge(self,concept_id_1,concept_id_2,relation_id):
-        raise NotImplementedError
-    def add_lexical_edge(self,concept_id, term_id): 
-        raise NotImplementedError
-    def sparql_query(self,query:str,initBindings:dict):   
+    def sparql_query(self,query:str,initBindings:dict=None):   
         q = sparql.prepareQuery(query,initNs = {"VOCAB": self.VOCAB, "RDF": RDF, "RDFS": RDFS})
         qres = self.g.query(q, initBindings=initBindings)
         return qres
     def get_g(self):
         return self.g
+    def get_data(self):
+        concepts =  set(self.id_to_concept.values())
+        terms = set(self.id_to_term.values())
+        conceptual_relations = set(self.id_to_concept_relations.values())
+        q1 = """
+            SELECT ?object_id ?rel_id ?subject_id WHERE {?subject_concept ?concept_relation ?object_concept .
+                                                        ?concept_relation RDF:type VOCAB:Concept_Relation .
+                                                        ?subject_concept VOCAB:id ?subject_id .
+                                                        ?object_concept VOCAB:id ?object_id .
+                                                        ?concept_relation VOCAB:id ?rel_id
+                                     }
+        """
+        qres = self.sparql_query(q1)
+        conceptual_edges = set(Conceptual_Edge(str(row.subject_id),str(row.object_id),str(row.rel_id),) for row in qres)
+        q2 = """
+            SELECT ?concept_id ?term_id WHERE {?concept VOCAB:vocab_term ?term .
+                                               ?term VOCAB:id ?term_id .
+                                               ?concept VOCAB:id ?concept_id
+                                              }
+        """
+        qres = self.sparql_query(q2)
+        lexical_edges = set(Lexical_Edge(str(row.concept_id),str(row.term_id)) for row in qres)
+        return Knowledge_Data(concepts,terms,conceptual_edges,lexical_edges,conceptual_relations)
+
+
+
+
