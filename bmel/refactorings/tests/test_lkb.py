@@ -1,6 +1,6 @@
 import pytest
 from lexical_knowledge_base import *
-from hashdict import hashdict
+from misc.hashdict import hashdict
 
 concepts = {Concept(id = "C1",info=hashdict({"tst_attr":3})),
             Concept(id = "C2",info=hashdict({"tst_attr":4})),

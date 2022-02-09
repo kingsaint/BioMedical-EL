@@ -4,8 +4,8 @@ from collections import defaultdict
 from rdflib import Graph, URIRef, Literal, Namespace
 from rdflib.namespace import RDF,XSD,RDFS
 from rdflib.plugins import sparql
-from hashdict import hashdict
-from .data import *
+from misc.hashdict import hashdict
+from data import *
 
 
 class Basic_Lexical_Knowledge_Base:#Good for simple queries, 
@@ -59,7 +59,7 @@ class RDF_Lexical_Knowledge_Base:#good for complex,possibly recursive queries.
         self.id_to_concept = {concept.id:concept for concept in data.concepts}
         self.id_to_term= {term.id:term for term in data.terms}
         self.id_to_concept_relations = {relation.id:relation for relation in data.conceptual_relations}
-        g.parse("lkb_vocab.ttl")
+        g.parse("misc/lkb_vocab.ttl")
         VOCAB = Namespace('http://id.trendnet/vocab#')
         LKB = Namespace('http://id.trendnet/lkb/')
         g.bind('http://id.trendnet/vocab#', VOCAB)

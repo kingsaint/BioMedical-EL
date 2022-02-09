@@ -1,8 +1,5 @@
 from __future__ import annotations
 from dataclasses import dataclass
-import json
-from collections import defaultdict
-from lexical_knowledge_base import Lexical_Knowledge_Base
 from misc.hashdict import hashdict
 
 @dataclass(frozen=True)
