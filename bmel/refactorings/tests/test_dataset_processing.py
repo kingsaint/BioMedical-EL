@@ -1,6 +1,6 @@
 test_with_pytest.py
 from dataclasses import asdict
-from datasets import *
+from ..data import *
 import pytest
 from lkb.lexical_knowledge_base import *
 @pytest.fixture

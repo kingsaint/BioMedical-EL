@@ -5,7 +5,7 @@ from rdflib import Graph, URIRef, Literal, Namespace
 from rdflib.namespace import RDF,XSD,RDFS
 from rdflib.plugins import sparql
 from hashdict import hashdict
-from ..data import *
+from .data import *
 
 
 class Basic_Lexical_Knowledge_Base:#Good for simple queries, 

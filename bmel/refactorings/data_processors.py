@@ -3,7 +3,7 @@ from collections import defaultdict
 from data import Document,Mention
 from dataclasses import dataclass
 
-from refactorings.lkb.lexical_knowledge_base import Knowledge_Data
+from refactorings.lexical_knowledge_base import Knowledge_Data
 
 def segment_document(tokenizer,max_mention_per_new_doc,doc:Document) -> Document:
     def segment_recursive(remaining_text,remaining_mentions,doc_id=0,prev_seq_len=0):
