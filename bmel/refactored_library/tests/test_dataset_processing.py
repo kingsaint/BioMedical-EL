@@ -3,10 +3,10 @@
 # from ..data import *
 # import pytest
 # from lkb.lexical_knowledge_base import *
-from fixtures import doc_dataset
+# from fixtures import doc_dataset
 
-def test_document_creation(doc_dataset):
-    text,
+# def test_document_creation(doc_dataset):
+#     text,
 
 
 

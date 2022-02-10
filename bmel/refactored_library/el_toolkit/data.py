@@ -1,7 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
 import dataclasses, json
-from dataclasses_json import dataclass_json
 
 @dataclass(frozen=True)
 class Mention():

@@ -4,10 +4,7 @@ from collections import defaultdict
 from rdflib import Graph, URIRef, Literal, Namespace
 from rdflib.namespace import RDF,XSD,RDFS
 from rdflib.plugins import sparql
-from misc.hashdict import hashdict
-from data import *
-
-
+from el_toolkit.data import *
 
 class Basic_Lexical_Knowledge_Base:#Good for simple queries, 
     def __init__(self,data):
