@@ -1,67 +1,71 @@
-import random
+from abc import  abstractmethod
 from dataclasses import asdict
-from el_toolkit.lexical_knowledge_base import Basic_Lexical_Knowledge_Base
-from collections import defaultdict
+import random
+from el_toolkit.document import segment_document
+from el_toolkit.lexical_knowledge_base import Basic_Lexical_Knowledge_Base, Knowledge_Data, RDF_Lexical_Knowledge_Base
+from itertools import product
 from tests.fixtures import *
-import functools
-import pytest
+import pytest 
+from collections import namedtuple
+from tests.fixtures import get_test_data
+LKB_DATASET_NAMES = ["small_example"]
+KNOWLEDGE_BASE_CLASSES = [Basic_Lexical_Knowledge_Base,RDF_Lexical_Knowledge_Base]
 
-DATASET_NAMES = ["small_example"]
-LKB_TYPES = [Basic_Lexical_Knowledge_Base,RDF_Lexical_Knowledge_Base]
+LKB_test = namedtuple("LKB_test",["test_name","random_input_generator","expected_output_generator"])
 
-def generate_concept(lkb,concept_id):
-    return asdict(lkb.get_concept(concept_id))
-def generate_term(lkb,term_id):
-    return asdict(lkb.get_term(term_id))
-def generate_relation(lkb,conceptual_relation_id):
-    return asdict(lkb.get_relation(conceptual_relation_id))
-def generate_forward_edges(lkb,concept_id):
-    return [(asdict(relation),asdict(concept)) for relation,concept in lkb.get_forward_edges(concept_id)]
-def generate_backward_edges(lkb,concept_id):
-    return [(asdict(relation),asdict(concept)) for relation,concept in lkb.get_backward_edges(concept_id)]
-def generate_concepts_from_term_id(lkb,concept_id):
-    return [asdict(term) for term in lkb.get_terms_from_concept_id(concept_id)]
-def generate_terms_from_concept_id(lkb,term_id):
-    return [asdict(concept) for concept in lkb.get_terms_from_concept_id(term_id)]
 
-tests = {"concept":[(generate_concept,'concept'),
-                    (generate_forward_edges,'forward_edges'),
-                    (generate_backward_edges,'backward_edges'),
-                    (generate_terms_from_concept_id,'terms_connected_to_concept')
-                   ],
-         "term":[(generate_term,'term'),
-                 (generate_concepts_from_term_id,'concepts_connected_to_terms')],
-                
-         "conceptual_relation":[(generate_relation,'concept_relation')]}
+def get_random_id(type):       
+    def _get_random_id(knowledge_data):
+        if type == "concept":
+            set_of_items = [concept.id for concept in knowledge_data.concepts]
+        elif type == "term":
+            set_of_items = [term.id for term in knowledge_data.terms]
+        elif type == "conceptual_relation":
+            set_of_items = [cr.id for cr in knowledge_data.conceptual_relations]
+        return random.choice(set_of_items)
+    return _get_random_id
 
-def generate_test_data(knowledge_data):
-    generated_output = defaultdict(None)
-    lkb = Basic_Lexical_Knowledge_Base(knowledge_data)
-    inputs = {"concept":random.choice(knowledge_data.concepts),
-              "term":random.choice(knowledge_data.terms),
-              "conceptual_relation":random.choice(knowledge_data.conceptual_relations)}
-    def generate_output(test_input_type,knowledge_data_entity):
-        if knowledge_data_entity:
-            generated_output[f"tests_with_{test_input_type}_id_input"] = {f"input_{test_input_type}_id":knowledge_data_entity.id,"results":{}}
-            for test in tests[test_input_type]:
-                example_generator,output_field = test
-                generated_output[f"tests_with_{test_input_type}_id_input"]["results"][output_field] = example_generator(lkb,knowledge_data_entity.id)
-            return generated_output
+def handle_nulls(function):
+    def _handle_nulls(id,lkb):
+        if id == None:
+            return None
         else:
-            return {f"tests_with_{test_input_type}_id_input":{}}
-    return functools.reduce(lambda a, b: dict(a,**b), (generate_output(input_type,knowledge_data_entity) for input_type,knowledge_data_entity in inputs.items()))
+
+            return function(id,lkb)
+    return _handle_nulls
+
+LKB_TESTS = [LKB_test("get_concept",get_random_id("concept"),handle_nulls((lambda id,lkb: asdict(lkb.get_concept(id))))),
+             LKB_test("get_term",get_random_id("term"),handle_nulls((lambda id,lkb: asdict(lkb.get_term(id))))),
+             LKB_test("get_relation",get_random_id("conceptual_relation"),handle_nulls((lambda id,lkb: asdict(lkb.get_relation(id))))),
+             LKB_test("get_forward_edges",get_random_id("concept"),handle_nulls((lambda id,lkb: [[asdict(relation),asdict(concept)] for relation,concept in lkb.get_forward_edges(id)]))),
+             LKB_test("get_backward_edges",get_random_id("concept"),handle_nulls((lambda id,lkb: [[asdict(relation),asdict(concept)] for relation,concept in lkb.get_backward_edges(id)]))),
+             LKB_test("get_terms_from_concept_id",get_random_id("concept"),handle_nulls((lambda id,lkb: [asdict(term) for term in lkb.get_terms_from_concept_id(id)]))),
+             LKB_test("get_concepts_from_term_id",get_random_id("term"),handle_nulls((lambda id,lkb: [asdict(concept) for concept in lkb.get_concepts_from_term_id(id)])))
+]
+
+def generate_lkb_test_data(knowledge_data):
+    all_test_data = {}
+    lkb = Basic_Lexical_Knowledge_Base(knowledge_data)
+    for test in LKB_TESTS:
+        test_data = {}
+        test_data["input_id"] = test.random_input_generator(knowledge_data)
+        test_data["expected_output"] = test.expected_output_generator(test_data["input_id"],lkb)
+        all_test_data[test.test_name] = test_data
+    return all_test_data
 
 test_parameters = []
 ids = []
-for test_input_type,params in tests.items():
-    for output_generator,output_field in params:
-        for dataset_name in DATASET_NAMES:
-            for lkb_type in LKB_TYPES:
-                test_parameters.append((test_input_type,output_generator,output_field,dataset_name,(lkb_type,dataset_name)))
-                ids.append(f"{output_generator.__name__}:{str(dataset_name)}:{str(lkb_type.__name__)}")
+for test,dataset_name,lkb_type in product(LKB_TESTS,LKB_DATASET_NAMES,KNOWLEDGE_BASE_CLASSES):
+    test_data_filepath = f"tests/test_data/lkb_test_data/{dataset_name}/test_data.json"
+    input_id,expected_output = get_test_data(test_data_filepath,test.test_name)
+    test_parameters.append((test,input_id,expected_output,(lkb_type,dataset_name)))
+    ids.append(f"{test.test_name}:{str(dataset_name)}:{str(lkb_type.__name__)}")
+    
 
-@pytest.mark.parametrize("test_input_type,output_generator,output_field,dataset_name,lkb", test_parameters,ids =ids,indirect=["lkb"])
-def test_lkb(test_input_type,output_generator,output_field,dataset_name,lkb,knowledge_datasets,kb_expected_outputs):
-    knowledge_data = knowledge_datasets(dataset_name)
-    expected_output = kb_expected_outputs(dataset_name)
-    assert output_generator(lkb,knowledge_data) == expected_output[f"tests_with_{test_input_type}_id_input"]["results"][output_field]
+
+@pytest.mark.parametrize("test,input_id,expected_output,lkb", test_parameters,ids =ids,indirect=["lkb"])
+def test_lkb(test,input_id,expected_output,lkb):
+    assert test.get_expected_output(input_id,lkb) == expected_output
+
+
+
