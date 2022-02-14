@@ -1,26 +1,111 @@
 from __future__ import annotations
-from dataclasses import dataclass
+from abc import abstractclassmethod, abstractmethod
+from dataclasses import asdict, dataclass
 from collections import defaultdict
 from rdflib import Graph, URIRef, Literal, Namespace
 from rdflib.namespace import RDF,XSD,RDFS
 from rdflib.plugins import sparql
-from el_toolkit.data import *
+import json
 
-class Basic_Lexical_Knowledge_Base:#Good for simple queries, 
-    def __init__(self,data):
-        self.id_to_concept = {concept.id:concept for concept in data.concepts}
-        self.id_to_term= {term.id:term for term in data.terms}
-        self.id_to_concept_relations = {relation.id:relation for relation in data.conceptual_relations}
-        self.concept_relation_name_to_concept_relation = {relation.string:relation for relation in data.conceptual_relations}
+@dataclass(frozen=True)
+class Concept:
+    id: str
+    info: dict
+@dataclass(frozen=True)
+class Term:
+    id: str
+    string: str
+
+@dataclass(frozen=True)
+class Conceptual_Edge:
+    concept_id_1: str
+    concept_id_2: str
+    rel_id: str
+
+@dataclass(frozen=True)
+class Lexical_Edge:
+    concept_id: str
+    term_id: str
+
+@dataclass(frozen=True)
+class Conceptual_Relation:
+    id: str
+    string: str #relation name
+
+
+@dataclass(frozen=True)
+class Knowledge_Data:#Intended to be a single data format for sparse storage. Used to initialize an LKB
+    concepts: list[Concept]
+    terms: list[Term]
+    conceptual_edges: list[Conceptual_Edge]
+    lexical_edges: list[Lexical_Edge]
+    conceptual_relations: list[Conceptual_Relation]
+    def write_json(self,file_path):
+        with open(file_path, 'w') as outfile:
+            dictionary = asdict(self)
+            json.dump(dictionary,outfile,indent = 2)
+    @classmethod
+    def read_json(cls,file_path):
+        with open(file_path, 'r') as infile:
+            dictionary = json.load(infile)
+            concepts = [Concept(**concept) for concept in dictionary["concepts"]]
+            terms = [Term(**term) for term in dictionary["terms"]]
+            conceptual_edges = [Conceptual_Edge(**conceptual_edge) for conceptual_edge in dictionary["conceptual_edges"]]
+            lexical_edges = [Lexical_Edge(**lexical_edge) for lexical_edge in dictionary["lexical_edges"]]
+            conceptual_relations = [Conceptual_Relation(**conceptual_relation) for conceptual_relation in dictionary["conceptual_relations"]]
+            return cls(concepts,terms,conceptual_edges,lexical_edges,conceptual_relations)
+
+class Lexical_Knowledge_Base:
+    @abstractmethod
+    def __init__(self,knowledge_data):
+        pass
+    @abstractmethod
+    def get_concept(self,concept_id:str):
+        pass 
+    @abstractmethod
+    def get_term(self,term_id):
+        pass
+    @abstractmethod
+    def get_relation(self,rel_id):
+        pass
+    @abstractmethod
+    def get_forward_edges(self,subject_concept_id:str):
+        pass
+    @abstractmethod
+    def get_backward_edges(self,object_concept_id:str):
+        pass
+    @abstractmethod
+    def get_terms_from_concept_id(self,concept_id:str):
+        pass
+    @abstractmethod
+    def get_concepts_from_term_id(self,term_id:str):
+        pass
+    @abstractmethod
+    def get_data(self):
+        pass
+    def write_json(self,file_path):
+        knowledge_data = self.get_data()
+        knowledge_data.write_json(file_path)
+    @classmethod
+    def read_json(cls,file_path):
+        return cls(Knowledge_Data.read_json(file_path))
+
+
+class Basic_Lexical_Knowledge_Base(Lexical_Knowledge_Base):#Good for simple queries, not memory-efficient
+    def __init__(self,knowledge_data):
+        self.id_to_concept = {concept.id:concept for concept in knowledge_data.concepts}
+        self.id_to_term= {term.id:term for term in knowledge_data.terms}
+        self.id_to_concept_relations = {relation.id:relation for relation in knowledge_data.conceptual_relations}
+        self.concept_relation_name_to_concept_relation = {relation.string:relation for relation in knowledge_data.conceptual_relations}
         self.forward_conceptual_edges = defaultdict(list)
         self.backward_conceptual_edges = defaultdict(list)
         self.concept_id_to_term_ids = defaultdict(list)
         self.term_id_to_concept_ids = defaultdict(list)
-        for edge in data.conceptual_edges:
+        for edge in knowledge_data.conceptual_edges:
             print("Creating conceptual relation index")
             self.forward_conceptual_edges[edge.concept_id_1].append((self.id_to_concept_relations[edge.rel_id],self.id_to_concept[edge.concept_id_2]))
             self.backward_conceptual_edges[edge.concept_id_2].append((self.id_to_concept_relations[edge.rel_id],self.id_to_concept[edge.concept_id_1]))
-        for edge in data.lexical_edges:
+        for edge in knowledge_data.lexical_edges:
             self.concept_id_to_term_ids[edge.concept_id].append(edge.term_id)
             self.term_id_to_concept_ids[edge.term_id].append(edge.concept_id)
     def get_concept(self,concept_id:str):
@@ -50,19 +135,20 @@ class Basic_Lexical_Knowledge_Base:#Good for simple queries,
             for term_id in term_ids:
                 lexical_edges.add(Lexical_Edge(concept_id,term_id))
         return Knowledge_Data(concepts,terms,conceptual_edges,lexical_edges,conceptual_relations)
-class RDF_Lexical_Knowledge_Base:#good for complex,possibly recursive queries.
-    def __init__(self,data):
+
+class RDF_Lexical_Knowledge_Base(Lexical_Knowledge_Base):#good for complex,possibly recursive queries.
+    def __init__(self,knowledge_data):
         g = Graph()
-        self.id_to_concept = {concept.id:concept for concept in data.concepts}
-        self.id_to_term= {term.id:term for term in data.terms}
-        self.id_to_concept_relations = {relation.id:relation for relation in data.conceptual_relations}
-        g.parse("misc/lkb_vocab.ttl")
+        self.id_to_concept = {concept.id:concept for concept in knowledge_data.concepts}
+        self.id_to_term= {term.id:term for term in knowledge_data.terms}
+        self.id_to_concept_relations = {relation.id:relation for relation in knowledge_data.conceptual_relations}
+        g.parse("el_toolkit/lkb_vocab.ttl")
         VOCAB = Namespace('http://id.trendnet/vocab#')
         LKB = Namespace('http://id.trendnet/lkb/')
         g.bind('http://id.trendnet/vocab#', VOCAB)
         g.bind('http://id.trendnet/lkb/',LKB)
         concept_attr_names = set()
-        for concept in data.concepts:
+        for concept in knowledge_data.concepts:
             concept_uri =  URIRef(f"http://id.trendnet/lkb/Concept/{concept.id}")
             g.add((concept_uri,RDF.type,VOCAB.Concept))
             g.add((concept_uri,VOCAB.id,Literal(concept.id, datatype=XSD.string)))
@@ -72,28 +158,28 @@ class RDF_Lexical_Knowledge_Base:#good for complex,possibly recursive queries.
                     g.add((URIRef(f'http://id.trendnet/vocab#{concept_attr_name}'),RDF.type,VOCAB.Additional_Concept_Attribute))
                     g.add((URIRef(f'http://id.trendnet/vocab#{concept_attr_name}'),RDFS.label,Literal(concept_attr_name)))
                 g.add((concept_uri,URIRef(f'http://id.trendnet/vocab#{concept_attr_name}'),Literal(concept_attr)))
-        for term in data.terms:
+        for term in knowledge_data.terms:
             term_uri =  URIRef(f"http://id.trendnet/lkb/Term/{term.id}")
             g.add((term_uri,RDF.type,VOCAB.Term))
             g.add((term_uri,VOCAB.id,Literal(term.id,datatype=XSD.string)))
             g.add((term_uri,VOCAB.string,Literal(term.string,datatype=XSD.string)))
-        for concept_relation in data.conceptual_relations:
+        for concept_relation in knowledge_data.conceptual_relations:
             concept_relation_uri = URIRef(f"http://id.trendnet/lkb/Concept_Relation/{concept_relation.id}")
             g.add((concept_relation_uri,RDF.type,VOCAB.Concept_Relation))
             g.add((concept_relation_uri,VOCAB.id,Literal(concept_relation.id,datatype=XSD.string)))
             g.add((concept_relation_uri,VOCAB.string,Literal(concept_relation.string,datatype=XSD.string)))
-        for edge in data.conceptual_edges:
+        for edge in knowledge_data.conceptual_edges:
             concept_one_uri = URIRef(f"http://id.trendnet/lkb/Concept/{edge.concept_id_1}")
             concept_two_uri = URIRef(f"http://id.trendnet/lkb/Concept/{edge.concept_id_2}")
             rel_uri = URIRef(f"http://id.trendnet/lkb/Concept_Relation/{edge.rel_id}")
             g.add((concept_one_uri,rel_uri,concept_two_uri))
-        for edge in data.lexical_edges:
+        for edge in knowledge_data.lexical_edges:
             concept_uri =  URIRef(f"http://id.trendnet/lkb/Concept/{edge.concept_id}")
             term_uri = URIRef(f"http://id.trendnet/lkb/Term/{edge.term_id}")
             g.add((concept_uri,VOCAB.vocab_term,term_uri))
         self.g = g
         self.VOCAB = VOCAB
-    def get_concept(self,concept_id:str):
+    def get_concept(self,concept_id):
         return self.id_to_concept[concept_id]
     def get_term(self,term_id):
         return self.id_to_term[term_id]
@@ -172,3 +258,5 @@ class RDF_Lexical_Knowledge_Base:#good for complex,possibly recursive queries.
 
 
 
+# def derive_domain_dataset(docs:list[Document],kd:Knowledge_Data) -> tuple(list[Document],Knowledge_Data):
+#     pass
