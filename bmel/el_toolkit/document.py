@@ -47,7 +47,7 @@ class Displayer:
         raise NotImplementedError
 
 class No_Overlap_Displayer(Displayer):
-    def display(self,documents,lkb=None):
+    def display(self,documents:list[Document],lkb=None):
         assert True not in [document.check_for_span_overlaps() for document in documents]
         raise NotImplementedError
 
