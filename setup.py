@@ -10,5 +10,6 @@ setup(
                     'mpi4py',
                     'boto3',
                     'ipymarkup',
+                    'rdflib'
                    ]
 )
