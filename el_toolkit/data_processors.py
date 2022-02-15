@@ -45,7 +45,7 @@ def segment_document(doc:Document,tokenizer,max_mention_per_new_doc) -> list(Doc
                 segmented_doc = Document(new_doc_id,segment_text,new_document_mentions)
                 remaining_segmented_docs,remaining_omitted_mentions = segment_recursive(remaining_text[len(segment_text):],remaining_mentions[mentions_added:],doc_number+1,prev_seq_len+len(segment_text))
                 return [segmented_doc] + remaining_segmented_docs, omitted_mentions + remaining_omitted_mentions
-        segmented_doc = Document(new_doc_id,segment_text,new_document_mentions)
+        segmented_doc = Document(new_doc_id,remaining_text,new_document_mentions)
         return [segmented_doc],omitted_mentions#base case
     segmented_docs,omitted_mentions = segment_recursive(doc.message,doc.mentions)
     print(f"Mentions Omitted: {omitted_mentions}")

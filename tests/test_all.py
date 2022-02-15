@@ -9,7 +9,7 @@ def knowledge_datasets(request):
     knowledge_datasets = {}
     def _knowledge_dataset(dataset_name):
         if dataset_name not in knowledge_datasets.keys():
-            knowledge_datasets[dataset_name] = Knowledge_Data.read_json(f"tests/test_data/lkb_test_data/{dataset_name}/knowledge_data.json")
+            knowledge_datasets[dataset_name] = Knowledge_Data.read_json(f"tests/test_data/lkb_method_test_data/{dataset_name}/knowledge_data.json")
         return knowledge_datasets[dataset_name]
     yield _knowledge_dataset
 
