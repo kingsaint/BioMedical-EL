@@ -1,5 +1,7 @@
+from __future__ import annotations
 from el_toolkit.document import Document,Mention
 from el_toolkit.lexical_knowledge_base import Concept, Knowledge_Data,RDF_Lexical_Knowledge_Base
+
 from rdflib import Graph, URIRef, Literal, Namespace
 
 def remove_overlaps(doc:Document,broad_strategy:bool=True) -> Document:
@@ -17,7 +19,7 @@ def remove_overlaps(doc:Document,broad_strategy:bool=True) -> Document:
         raise NotImplementedError
 
 
-def segment_document(doc:Document,tokenizer,max_mention_per_new_doc) -> list[Document]:
+def segment_document(doc:Document,tokenizer,max_mention_per_new_doc) -> list(Document):
     assert not doc.check_for_span_overlaps()
     def segment_recursive(remaining_text,remaining_mentions,doc_number=0,prev_seq_len=0):
         new_doc_id = doc.doc_id + "_" + str(doc_number)

@@ -5,6 +5,7 @@ import dataclasses
 import json
 from el_toolkit.lexical_knowledge_base import Lexical_Knowledge_Base
 from dataclasses import dataclass
+
 from ipymarkup import show_span_line_markup
 
 
