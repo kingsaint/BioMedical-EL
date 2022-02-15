@@ -8,6 +8,7 @@ setup(
   install_requires=['transformers',
                     'torch',
                     'mpi4py',
-                    'boto3'
+                    'boto3',
+                    'ipymarkup'
                    ]
 )

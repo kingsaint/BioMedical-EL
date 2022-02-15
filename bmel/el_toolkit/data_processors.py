@@ -62,4 +62,3 @@ def derive_domain(kd:Knowledge_Data,concept_id:str,isa_relation_name:str) -> lis
     qres = lkb.sparql_query(q,initBindings={'rel_label':Literal(isa_relation_name, datatype=XSD.string)})
     return [(lkb.get_relation(str(row.rel_id)),lkb.get_concept(str(row.object_id))) for row in qres]
     
-

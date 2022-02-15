@@ -3,8 +3,9 @@ from ast import Return
 from dataclasses import asdict, dataclass
 import dataclasses
 import json
-from el_toolkit.lexical_knowledge_base import Knowledge_Data
+from el_toolkit.lexical_knowledge_base import Lexical_Knowledge_Base
 from dataclasses import dataclass
+from ipymarkup import show_span_line_markup
 
 
 
@@ -41,15 +42,13 @@ class Document:
         return False
     def get_verbose_mentions(self):
         return [{**{"mention_text":self.message[mention.start_index:mention.end_index]},**asdict(mention)} for mention in self.mentions]
+    
 
-class Displayer:
-    def display(self):
-        raise NotImplementedError
+        
 
-class No_Overlap_Displayer(Displayer):
-    def display(self,documents:list[Document],lkb=None):
-        assert True not in [document.check_for_span_overlaps() for document in documents]
-        raise NotImplementedError
+
+
+
 
 
 
