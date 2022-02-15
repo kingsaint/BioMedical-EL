@@ -41,18 +41,18 @@ LKB_TESTS = [LKB_test("get_concept",get_random_id("concept"),handle_nulls((lambd
              LKB_test("get_concepts_from_term_id",get_random_id("term"),handle_nulls((lambda id,lkb: [asdict(concept) for concept in lkb.get_concepts_from_term_id(id)])))
 ]
 
-def generate_lkb_test_data(dataset_name):
-    all_test_data = {}
-    knowledge_data = Knowledge_Data.read_json(f"tests/test_data/lkb_test_data/{dataset_name}/knowledge_data.json")
-    lkb = Basic_Lexical_Knowledge_Base(knowledge_data)
-    for test in LKB_TESTS:
-        test_data = {}
-        test_data["input_id"] = test.random_input_generator(knowledge_data)
-        test_data["expected_output"] = test.expected_output_generator(test_data["input_id"],lkb)
-        all_test_data[test.test_name] = test_data
-    with open(f"tests/test_data/lkb_test_data/{dataset_name}/test_data.json","w+") as filename:
-        json.dump(all_test_data,filename,indent = 2)
-    return all_test_data
+def generate_lkb_test_data():
+    for dataset_name in LKB_DATASET_NAMES:
+        all_test_data = {}
+        knowledge_data = Knowledge_Data.read_json(f"tests/test_data/lkb_test_data/{dataset_name}/knowledge_data.json")
+        lkb = Basic_Lexical_Knowledge_Base(knowledge_data)
+        for test in LKB_TESTS:
+            test_data = {}
+            test_data["input_id"] = test.random_input_generator(knowledge_data)
+            test_data["expected_output"] = test.expected_output_generator(test_data["input_id"],lkb)
+            all_test_data[test.test_name] = test_data
+        with open(f"tests/test_data/lkb_test_data/{dataset_name}/test_data.json","w+") as filename:
+            json.dump(all_test_data,filename,indent = 2)
 
 
 def get_lkb_test_parameters():

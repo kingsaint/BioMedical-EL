@@ -1,6 +1,7 @@
 from el_toolkit.document import Document,Mention
-from el_toolkit.lexical_knowledge_base import Knowledge_Data,RDF_Lexical_Knowledge_Base
+from el_toolkit.lexical_knowledge_base import Concept, Knowledge_Data,RDF_Lexical_Knowledge_Base
 from rdflib import Graph, URIRef, Literal, Namespace
+
 def remove_overlaps(doc:Document,broad_strategy:bool=True) -> Document:
     if broad_strategy:
         no_overlap_mentions = []
@@ -48,7 +49,7 @@ def segment_document(doc:Document,tokenizer,max_mention_per_new_doc) -> list[Doc
     return segmented_docs
 
 
-def derive_domain_dataset(kd:Knowledge_Data,concept_id:str,isa_relation_name:str) -> Knowledge_Data:
+def derive_domain(kd:Knowledge_Data,concept_id:str,isa_relation_name:str) -> list[Concept]:
     lkb = RDF_Lexical_Knowledge_Base(kd)
     q = """
             SELECT ?object_id ?rel_id WHERE {?subject_concept ?concept_relation ?object_concept .
