@@ -1,8 +1,5 @@
 from el_toolkit.lexical_knowledge_base import *
 # from el_toolkit.data import Knowledge_Data
-from functools import lru_cache as cache
-import json
-import os
 
 import pytest
 

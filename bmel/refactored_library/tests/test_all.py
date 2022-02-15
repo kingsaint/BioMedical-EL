@@ -1,6 +1,3 @@
-from itertools import product
-import json
-from el_toolkit.document import Document
 from tests.doc_testing_utils import get_doc_test_parameters
 from tests.lkb_testing_utils import get_lkb_test_parameters
 from tests.fixtures import *

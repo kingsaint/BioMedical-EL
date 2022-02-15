@@ -1,13 +1,10 @@
-from abc import  abstractmethod
 from dataclasses import asdict
 import random
-from el_toolkit.document import segment_document
 from el_toolkit.lexical_knowledge_base import Basic_Lexical_Knowledge_Base, Knowledge_Data, RDF_Lexical_Knowledge_Base
 from itertools import product
 from tests.fixtures import *
 import pytest 
 from collections import namedtuple
-import sys
 
 LKB_DATASET_NAMES = ["small_example"]
 KNOWLEDGE_BASE_CLASSES = [Basic_Lexical_Knowledge_Base,RDF_Lexical_Knowledge_Base]

@@ -5,6 +5,7 @@ from transformers import BertTokenizer, BertModel
 from itertools import product
 import pytest
 from collections import namedtuple
+from el_toolkit.data_processors import segment_document,remove_overlaps
 
 
 biomed_tokenizer = BertTokenizer.from_pretrained(pretrained_model_name_or_path='monologg/biobert_v1.1_pubmed',

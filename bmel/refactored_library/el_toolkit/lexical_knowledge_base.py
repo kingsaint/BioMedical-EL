@@ -257,6 +257,3 @@ class RDF_Lexical_Knowledge_Base(Lexical_Knowledge_Base):#good for complex,possi
 
 
 
-
-# def derive_domain_dataset(docs:list[Document],kd:Knowledge_Data) -> tuple(list[Document],Knowledge_Data):
-#     pass
