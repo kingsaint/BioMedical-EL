@@ -27,17 +27,6 @@ LKB_TYPES = [Basic_Lexical_Knowledge_Base,RDF_Lexical_Knowledge_Base]
 #     documents 
 
 
-
-
-
-def get_test_data(filepath,test_name):
-    with open(filepath) as file_name:
-        test_info = json.load(file_name)[test_name]
-    input_id = test_info["input_id"]
-    expected_output = test_info["expected_output"]
-    return input_id,expected_output
-
-
 @pytest.fixture(scope="session")
 def knowledge_datasets(request):
     knowledge_datasets = {}
