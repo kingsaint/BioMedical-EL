@@ -5,6 +5,5 @@ from el_toolkit.document import Document
 class Displayer():
     def display(doc:Document,lkb:Lexical_Knowledge_Base=None):
         spans = [(mention.start_index,mention.stop_index,mention.concept_id) for mention in doc.mentions]
-        html_lines =format_span_line_markup(doc.message, spans)
-        html = "".join(format_span_line_markup(text, spans))
+        html = "".join(format_span_line_markup(doc.message, spans))
         return html
