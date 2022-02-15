@@ -18,6 +18,7 @@ def remove_overlaps(doc:Document,broad_strategy:bool=True) -> Document:
 
 
 def segment_document(doc:Document,tokenizer,max_mention_per_new_doc) -> list[Document]:
+    assert not doc.check_for_span_overlaps()
     def segment_recursive(remaining_text,remaining_mentions,doc_number=0,prev_seq_len=0):
         new_doc_id = doc.doc_id + "_" + str(doc_number)
         omitted_mentions = 0

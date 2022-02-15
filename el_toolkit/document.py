@@ -33,7 +33,7 @@ class Document:
     @classmethod
     def from_dict(cls,data):
         mentions = [Mention(**mention) for mention in data["mentions"]]
-        return Document(data["doc_id"],data["message"],mentions)
+        return cls(data["doc_id"],data["message"],mentions)
     def check_for_span_overlaps(self):
         for mention_1 in self.mentions:
             for mention_2 in self.mentions:
