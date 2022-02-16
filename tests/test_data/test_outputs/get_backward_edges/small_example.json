@@ -1,0 +1,5 @@
+{
+  "input_filepath": "tests/test_data/test_knowledge_data/small_example.json",
+  "random_inputs": "C1",
+  "expected_output": []
+}

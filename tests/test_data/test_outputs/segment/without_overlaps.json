@@ -1,7 +1,9 @@
 {
-  "remove_overlaps": {
-    "expected_output": {
-      "doc_id": "1234",
+  "input_filepath": "tests/test_data/test_docs/without_overlaps/without_overlaps.json",
+  "random_inputs": null,
+  "expected_output": [
+    {
+      "doc_id": "without_overlaps_0",
       "message": "This is a good example of a test sentence.",
       "mentions": [
         {
@@ -11,10 +13,15 @@
         },
         {
           "start_index": 15,
+          "end_index": 22,
+          "concept_id": "C123456"
+        },
+        {
+          "start_index": 27,
           "end_index": 41,
           "concept_id": "C11111"
         }
       ]
     }
-  }
+  ]
 }
