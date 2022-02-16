@@ -10,11 +10,11 @@ import json
 @dataclass(frozen=True)
 class Concept:
     id: str
-    info: field(default_factory=dict)
+    info: dict = field(default_factory=dict)
+
 @dataclass(frozen=True)
 class Term:
     id: str
-    
     string: str
 
 @dataclass(frozen=True)
