@@ -49,7 +49,9 @@ class DataDirectedTest:
     def write_all_expected_outputs(self):
         for filepath in self.filepaths:
             self.write_expected_output(filepath)
-    
+
+
+
 class LKBTest(DataDirectedTest):
     lkb_classes = [RDF_Lexical_Knowledge_Base,Basic_Lexical_Knowledge_Base]
     filepaths = DataDirectedTest.get_all_filepaths("tests/test_data/test_knowledge_data/")
@@ -167,4 +169,6 @@ if __name__ == "__main__":
                 TestOverlapRemove
                 ]:
         cls().write_all_expected_outputs()
+
+
 

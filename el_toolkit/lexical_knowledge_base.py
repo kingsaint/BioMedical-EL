@@ -10,7 +10,7 @@ import json
 @dataclass(frozen=True)
 class Concept:
     id: str
-    info: dict
+    info: dict={}
 @dataclass(frozen=True)
 class Term:
     id: str
