@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import abstractclassmethod, abstractmethod
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass,field
 from collections import defaultdict
 from rdflib import Graph, URIRef, Literal, Namespace
 from rdflib.namespace import RDF,XSD,RDFS
@@ -10,10 +10,11 @@ import json
 @dataclass(frozen=True)
 class Concept:
     id: str
-    info: dict={}
+    info: field(default_factory=dict)
 @dataclass(frozen=True)
 class Term:
     id: str
+    
     string: str
 
 @dataclass(frozen=True)
