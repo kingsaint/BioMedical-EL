@@ -1,7 +1,7 @@
 from dataclasses import asdict
 from os import remove
 from el_toolkit.document import *
-from el_toolkit.lexical_knowledge_base import Basic_Lexical_Knowledge_Base, Knowledge_Data, RDF_Lexical_Knowledge_Base
+from el_toolkit.lexical_knowledge_base import Basic_Lexical_Knowledge_Base, Knowledge_Data, RDF_Lexical_Knowledge_Base, Net_Lexical_Knowledge_Base
 from transformers import BertTokenizer
 import pytest
 from collections import namedtuple
@@ -53,7 +53,7 @@ class DataDirectedTest:
 
 
 class LKBTest(DataDirectedTest):
-    lkb_classes = [RDF_Lexical_Knowledge_Base,Basic_Lexical_Knowledge_Base]
+    lkb_classes = [RDF_Lexical_Knowledge_Base,Basic_Lexical_Knowledge_Base,Net_Lexical_Knowledge_Base]
     filepaths = DataDirectedTest.get_all_filepaths("tests/test_data/test_knowledge_data/")
     def get_lkb(self,lkb_type,input_filepath):
         knowledge_data = Knowledge_Data.read_json(input_filepath)

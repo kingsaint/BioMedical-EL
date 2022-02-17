@@ -6,6 +6,7 @@ from rdflib import Graph, URIRef, Literal, Namespace
 from rdflib.namespace import RDF,XSD,RDFS
 from rdflib.plugins import sparql
 import json
+from collections import namedtuple
 
 @dataclass(frozen=True)
 class Concept:
@@ -257,18 +258,18 @@ class RDF_Lexical_Knowledge_Base(Lexical_Knowledge_Base):#good for complex,possi
         return Knowledge_Data(concepts,terms,conceptual_edges,lexical_edges,conceptual_relations)
 
 
-
+ConceptEdge = namedtuple("ConceptEdge",["relation","concept"])
 class Concept_Node:
-    def __init__(self,concept:Concept,term_nodes: list(Term_Node)=set(),outward_related_concept_nodes:list(tuple(str,Concept_Node))=set(),inward_related_concept_nodes:list(tuple(str,Concept_Node))=set()):
+    def __init__(self,concept:Concept):
         self.concept = concept
-        self._term_nodes = term_nodes
-        self._outward_related_concept_nodes = inward_related_concept_nodes
-        self._inward_related_concept_nodes = outward_related_concept_nodes
+        self._term_nodes = set()
+        self._outward_related_concept_nodes = []
+        self._inward_related_concept_nodes = []
     def add_related_concept_node(self,relation,concept:Concept_Node,direction:str):
         if direction == "outward":
-            self._outward_related_concept_nodes.add({"relation":relation,"concept":concept})
+            self._outward_related_concept_nodes.append(ConceptEdge(relation,concept))
         elif direction == "inward":
-            self._inward_related_concept_nodes.add({"relation":relation,"concept":concept})
+            self._inward_related_concept_nodes.append(ConceptEdge(relation,concept))
     def add_term_node(self,term:Term_Node):
         self._term_nodes.add(term)
     def get_term_nodes(self):
@@ -279,19 +280,19 @@ class Concept_Node:
         elif direction == "inward":
             return self._inward_related_concept_nodes
     def __repr__(self):
-        return self.concept.__repr__()
+        return f"{self.concept}"
 
 
 class Term_Node:
-    def __init__(self,term:Term,concept_nodes: list(Concept_Node)):
+    def __init__(self,term:Term):
         self.term = term
-        self._concept_nodes = concept_nodes
+        self._concept_nodes = set()
     def add_concept_node(self,concept_node:Concept_Node):
-        self._concepts.add(concept_node)
+        self._concept_nodes.add(concept_node)
     def get_concept_nodes(self):
         return self._concept_nodes
     def __repr__(self):
-        return self.term.__term__()
+        return f"{self.term}"
 
 
 class Net_Lexical_Knowledge_Base(Lexical_Knowledge_Base):#good for complex,possibly recursive queries.
@@ -299,31 +300,30 @@ class Net_Lexical_Knowledge_Base(Lexical_Knowledge_Base):#good for complex,possi
         self.id_to_concept_node = {concept.id:Concept_Node(concept) for concept in knowledge_data.concepts}
         self.id_to_term_node= {term.id:Term_Node(term) for term in knowledge_data.terms}
         self.id_to_concept_relation= {relation.id:relation for relation in knowledge_data.conceptual_relations}
-        self.concept_nodes = []
-        self.term_nodes = []
         for lexical_edge in knowledge_data.lexical_edges:
-            concept_node = self.id_to_concept_node(lexical_edge.concept_id)
-            term_node = self.id_to_term_node(lexical_edge.term_id)
+            concept_node = self.get_concept_node(lexical_edge.concept_id)
+            print(f"{concept_node.concept},{concept_node.get_term_nodes()}")
+            term_node = self.get_term_node(lexical_edge.term_id)
             concept_node.add_term_node(term_node)
             term_node.add_concept_node(concept_node)
         for conceptual_edge in knowledge_data.conceptual_edges:
-            src_concept_node = self.id_to_concept_node(conceptual_edge.concept_id_1)
-            dst_concept_node = self.id_to_concept_node(conceptual_edge.concept_id_1)
-            relation = self.id_to_concept_relation(conceptual_edge.rel_id)
+            src_concept_node = self.get_concept_node(conceptual_edge.concept_id_1)
+            dst_concept_node = self.get_concept_node(conceptual_edge.concept_id_2)
+            relation = self.id_to_concept_relation[conceptual_edge.rel_id]
             src_concept_node.add_related_concept_node(relation,dst_concept_node,direction="outward")
             dst_concept_node.add_related_concept_node(relation,src_concept_node,direction="inward")
     def get_concept(self,concept_id:str):
-        return self.get_concept_node(concept_id).concept.id
+        return self.get_concept_node(concept_id).concept
     def get_term(self,term_id):
-        return self.get_term_node(term_id).term.id
+        return self.get_term_node(term_id).term
     def get_relation(self,rel_id):
-        return self.id_to_conceptual_relation_node[rel_id]
+        return self.id_to_concept_relation[rel_id]
     def get_outward_edges(self,subject_concept_id:str):
-        return [(rel,object_concept_node.concept)for rel,object_concept_node in self.get_concept_node(subject_concept_id).get_related_concepts("outward")]
+        return [(rel,object_concept_node.concept) for rel,object_concept_node in self.get_concept_node(subject_concept_id).get_related_concepts("outward")]
     def get_inward_edges(self,object_concept_id:str):
         return [(rel,subject_concept_node.concept)for rel,subject_concept_node in self.get_concept_node(object_concept_id).get_related_concepts("inward")]
     def get_terms_from_concept_id(self,concept_id:str):
-        return [term_node.term for term_node in  self.get_concept_node(concept_id).get_term_nodes()]
+        return [term_node.term for term_node in self.get_concept_node(concept_id).get_term_nodes()]
     def get_concepts_from_term_id(self,term_id:str):
         return[concept_node.concept for concept_node in  self.get_term_node(term_id).get_concept_nodes()]
     def get_data(self):
