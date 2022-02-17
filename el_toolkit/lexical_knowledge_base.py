@@ -265,11 +265,11 @@ class Concept_Node:
         self._term_nodes = set()
         self._outward_related_concept_nodes = []
         self._inward_related_concept_nodes = []
-    def add_related_concept_node(self,relation,concept:Concept_Node,direction:str):
+    def add_related_concept_node(self,relation,concept_node:Concept_Node,direction:str):
         if direction == "outward":
-            self._outward_related_concept_nodes.append(ConceptEdge(relation,concept))
+            self._outward_related_concept_nodes.append(ConceptEdge(relation,concept_node))
         elif direction == "inward":
-            self._inward_related_concept_nodes.append(ConceptEdge(relation,concept))
+            self._inward_related_concept_nodes.append(ConceptEdge(relation,concept_node))
     def add_term_node(self,term:Term_Node):
         self._term_nodes.add(term)
     def get_term_nodes(self):
@@ -295,7 +295,7 @@ class Term_Node:
         return f"{self.term}"
 
 
-class Net_Lexical_Knowledge_Base(Lexical_Knowledge_Base):#good for complex,possibly recursive queries.
+class WordNet_Lexical_Knowledge_Base(Lexical_Knowledge_Base):#good for complex,possibly recursive queries.
     def __init__(self,knowledge_data):
         self.id_to_concept_node = {concept.id:Concept_Node(concept) for concept in knowledge_data.concepts}
         self.id_to_term_node= {term.id:Term_Node(term) for term in knowledge_data.terms}
@@ -332,3 +332,4 @@ class Net_Lexical_Knowledge_Base(Lexical_Knowledge_Base):#good for complex,possi
         return self.id_to_concept_node[concept_id]
     def get_term_node(self,term_id):
         return self.id_to_term_node[term_id]
+        

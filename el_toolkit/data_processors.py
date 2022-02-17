@@ -1,6 +1,7 @@
 from __future__ import annotations
+from collections import defaultdict
 from el_toolkit.document import Document,Mention
-from el_toolkit.lexical_knowledge_base import Concept, Knowledge_Data,RDF_Lexical_Knowledge_Base
+from el_toolkit.lexical_knowledge_base import Concept, Knowledge_Data, Net_Lexical_Knowledge_Base,RDF_Lexical_Knowledge_Base
 
 from rdflib import Graph, URIRef, Literal, Namespace
 
@@ -56,12 +57,34 @@ def derive_domain(kd:Knowledge_Data,ancestor_concept_id:str,isa_relation_label:s
     lkb = RDF_Lexical_Knowledge_Base(kd)
     q = """
             SELECT ?child_concept_id WHERE {?concept_relation VOCAB:label isa_rel_label .
-                                      ?child_concept ?concept_relation + ?ancestor_concept .
-                                      ?child_concept VOCAB:id ?child_concept_id .
-                                      ?ancestor_concept VOCAB:id ?ancestor_concept_id .
-                                            
-                                     }
+                                            ?child_concept ?concept_relation + ?ancestor_concept .
+                                            ?child_concept VOCAB:id ?child_concept_id .
+                                            ?ancestor_concept VOCAB:id ?ancestor_concept_id .
+                                            }
         """
-    qres = lkb.sparql_query(q,initBindings={'ancestor_concept_concept_id':Literal(ancestor_concept_id, datatype=XSD.string), 'isa_rel_label':Literal(isa_relation_string, datatype=XSD.string)})
+    qres = lkb.sparql_query(q,initBindings={'ancestor_concept_concept_id':Literal(ancestor_concept_id, datatype=XSD.string), 'isa_rel_label':Literal(isa_relation_label, datatype=XSD.string)})
     return [lkb.get_concept(str(row.child_concept_id)) for row in qres]
+
+def derive_domain(kd:Knowledge_Data,ancestor_concept_id:str,isa_relation_label:str) -> list[Concept]:
+    lkb = Net_Lexical_Knowledge_Base(kd)
+    ancestor_concept = lkb.get_concept_node(ancestor_concept_id)
+    # Function to collect the nodes in a breadth-first traversal
+    def get_descendants(concept_node):
+        descendants = []
+        visited_ids = set()
+        queue = []
+        queue.append(concept_node)
+        visited_ids.add(concept_node.concept.id)
+        while queue:
+            concept_node = queue.pop(0)
+            concept_id = concept_node.concept.id
+            descendants.append(concept_node)
+            for rel,concept_node in concept_node.get_related_concepts("inward"):
+                if concept_id not in visited_ids:
+                    if rel.string==isa_relation_label:
+                        queue.append(concept_node)
+                        descendants.append(concept_node.concept)
+                    visited_ids.add(concept_id)
+        return descendants
+    return get_descendants(ancestor_concept)
     
