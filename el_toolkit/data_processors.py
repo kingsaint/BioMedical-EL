@@ -52,16 +52,16 @@ def segment_document(doc:Document,tokenizer,max_mention_per_new_doc) -> list(Doc
     return segmented_docs
 
 
-def derive_domain(kd:Knowledge_Data,concept_id:str,isa_relation_name:str) -> list[Concept]:
+def derive_domain(kd:Knowledge_Data,ancestor_concept_id:str,isa_relation_label:str) -> list[Concept]:
     lkb = RDF_Lexical_Knowledge_Base(kd)
     q = """
-            SELECT ?object_id ?rel_id WHERE {?subject_concept ?concept_relation ?object_concept .
-                                            ?concept_relation RDF:type VOCAB:Concept_Relation .
-                                            ?subject_concept VOCAB:id ?subject_id .
-                                            ?object_concept VOCAB:id ?object_id .
-                                            ?concept_relation VOCAB:label ?rel_label
+            SELECT ?child_concept_id WHERE {?concept_relation VOCAB:label isa_rel_label .
+                                      ?child_concept ?concept_relation + ?ancestor_concept .
+                                      ?child_concept VOCAB:id ?child_concept_id .
+                                      ?ancestor_concept VOCAB:id ?ancestor_concept_id .
+                                            
                                      }
         """
-    qres = lkb.sparql_query(q,initBindings={'rel_label':Literal(isa_relation_name, datatype=XSD.string)})
-    return [(lkb.get_relation(str(row.rel_id)),lkb.get_concept(str(row.object_id))) for row in qres]
+    qres = lkb.sparql_query(q,initBindings={'ancestor_concept_concept_id':Literal(ancestor_concept_id, datatype=XSD.string), 'isa_rel_label':Literal(isa_relation_string, datatype=XSD.string)})
+    return [lkb.get_concept(str(row.child_concept_id)) for row in qres]
     

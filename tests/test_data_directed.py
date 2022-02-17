@@ -97,26 +97,19 @@ class TestCRGetting(LKBTest):
         lkb = self.get_lkb(lkb_type,input_filepath)
         return asdict(lkb.get_relation(random_input))
 
-class TestForwardEdgeGetting(LKBTest):
-    test_name = "get_forward_edges"
+class TestOutwardEdgeGetting(LKBTest):
+    test_name = "get_outward_edges"
     generate_random_input = LKBTest.generate_random_concept_id
     def generate_expected_output(self,input_filepath,random_input,lkb_type=Basic_Lexical_Knowledge_Base):
         lkb = self.get_lkb(lkb_type,input_filepath)
-        return [[asdict(relation),asdict(concept)] for relation,concept in lkb.get_forward_edges(random_input)]
+        return [[asdict(relation),asdict(concept)] for relation,concept in lkb.get_outward_edges(random_input)]
 
-class TestBackwardEdgeGetting(LKBTest):
-    test_name = "get_backward_edges"
+class TestInwardEdgeGetting(LKBTest):
+    test_name = "get_inward_edges"
     generate_random_input = LKBTest.generate_random_concept_id
     def generate_expected_output(self,input_filepath,random_input,lkb_type=Basic_Lexical_Knowledge_Base):
         lkb = self.get_lkb(lkb_type,input_filepath)
-        return [[asdict(relation),asdict(concept)] for relation,concept in lkb.get_backward_edges(random_input)]
-
-class TestBackwardEdgeGetting(LKBTest):
-    test_name = "get_backward_edges"
-    generate_random_input = LKBTest.generate_random_concept_id
-    def generate_expected_output(self,input_filepath,random_input,lkb_type=Basic_Lexical_Knowledge_Base):
-        lkb = self.get_lkb(lkb_type,input_filepath)
-        return [[asdict(relation),asdict(concept)] for relation,concept in lkb.get_backward_edges(random_input)]
+        return [[asdict(relation),asdict(concept)] for relation,concept in lkb.get_inward_edges(random_input)]
 
 class TestSynonymGetting(LKBTest):
     test_name = "get_synonyms"
@@ -161,8 +154,8 @@ if __name__ == "__main__":
     for cls in [TestConceptGetting,
                 TestTermGetting,
                 TestCRGetting,
-                TestForwardEdgeGetting,
-                TestBackwardEdgeGetting,
+                TestOutwardEdgeGetting,
+                TestInwardEdgeGetting,
                 TestSynonymGetting,
                 TestPolysemeGetting,
                 TestSegment,
