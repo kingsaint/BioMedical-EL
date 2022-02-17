@@ -302,7 +302,7 @@ class WordNet_Lexical_Knowledge_Base(Lexical_Knowledge_Base):#good for complex,p
         self.id_to_concept_relation= {relation.id:relation for relation in knowledge_data.conceptual_relations}
         for lexical_edge in knowledge_data.lexical_edges:
             concept_node = self.get_concept_node(lexical_edge.concept_id)
-            print(f"{concept_node.concept},{concept_node.get_term_nodes()}")
+            #print(f"{concept_node.concept},{concept_node.get_term_nodes()}")
             term_node = self.get_term_node(lexical_edge.term_id)
             concept_node.add_term_node(term_node)
             term_node.add_concept_node(concept_node)

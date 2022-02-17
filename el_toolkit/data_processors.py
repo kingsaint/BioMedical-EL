@@ -1,7 +1,7 @@
 from __future__ import annotations
 from collections import defaultdict
 from el_toolkit.document import Document,Mention
-from el_toolkit.lexical_knowledge_base import Concept, Knowledge_Data, Net_Lexical_Knowledge_Base,RDF_Lexical_Knowledge_Base
+from el_toolkit.lexical_knowledge_base import Concept, Knowledge_Data, WordNet_Lexical_Knowledge_Base,RDF_Lexical_Knowledge_Base
 
 from rdflib import Graph, URIRef, Literal, Namespace
 
