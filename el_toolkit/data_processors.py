@@ -65,8 +65,8 @@ def derive_domain(kd:Knowledge_Data,ancestor_concept_id:str,isa_relation_label:s
     qres = lkb.sparql_query(q,initBindings={'ancestor_concept_concept_id':Literal(ancestor_concept_id, datatype=XSD.string), 'isa_rel_label':Literal(isa_relation_label, datatype=XSD.string)})
     return [lkb.get_concept(str(row.child_concept_id)) for row in qres]
 
-def derive_domain(kd:Knowledge_Data,ancestor_concept_id:str,isa_relation_label:str) -> list[Concept]:
-    lkb = Net_Lexical_Knowledge_Base(kd)
+def derive_domain(kd:Knowledge_Data,ancestor_concept_id:str,isa_relation_label:str) -> list(Concept):
+    lkb = WordNet_Lexical_Knowledge_Base(kd)
     ancestor_concept = lkb.get_concept_node(ancestor_concept_id)
     # Function to collect the nodes in a breadth-first traversal
     def get_descendants(concept_node):
