@@ -1,7 +1,5 @@
 from dataclasses import asdict
-from el_toolkit.lexical_knowledge_base import Knowledge_Data
 from el_toolkit.document import Document,Mention
-#from .test_doc import generate_doc_test_data
 import re
 from transformers import BertTokenizer
 import json
@@ -13,7 +11,7 @@ Document(message="This is a good example of a test sentence.",doc_id="1234",ment
                                                                                         Mention(**{"start_index":15,"end_index":22,"concept_id":"C123456"}),
                                                                                         Mention(**{"start_index":27,"end_index":41,"concept_id":"C11111"})
                                                                                                 ]
-).write_json(f"tests/test_data/doc_test_data/no_overlaps_3_mentions/doc_data.json")
+).write_json(f"tests/test_data/test_docs/no_overlaps_3_mentions/doc_data.json")
 
 
 Document(message="This is a good example of a test sentence.",doc_id="1234",mentions = [Mention(**{"start_index":0,"end_index":4,"concept_id":"C222222"}),
@@ -22,10 +20,7 @@ Document(message="This is a good example of a test sentence.",doc_id="1234",ment
                                                                                                 ]
 ).write_json(f"tests/test_data/doc_test_data/overlaps/doc_data.json")
 
-doc = Document.read_json(f"tests/test_data/doc_test_data/no_overlaps_3_mentions/doc_data.json")
-# generate_doc_test_data("eg_1")
-#print(segment_document(doc,biomed_tokenizer,8)[0].get_verbose_mentions())
-# print(segment_document(doc,biomed_tokenizer,8)[0])
+doc = Document.read_json(f"tests/test_data/test_docs/no_overlaps_3_mentions/doc_data.json")
 
 regex = re.compile('^\d+\|[a|t]\|')
 

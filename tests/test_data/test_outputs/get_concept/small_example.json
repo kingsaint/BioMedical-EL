@@ -1,10 +1,10 @@
 {
   "input_filepath": "tests/test_data/test_knowledge_data/small_example.json",
-  "random_inputs": "C2",
+  "random_inputs": "C1",
   "expected_output": {
-    "id": "C2",
+    "id": "C1",
     "info": {
-      "tst_attr": 4
+      "tst_attr": 3
     }
   }
 }

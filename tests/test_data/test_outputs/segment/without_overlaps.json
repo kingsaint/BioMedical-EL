@@ -3,7 +3,7 @@
   "random_inputs": null,
   "expected_output": [
     {
-      "doc_id": "without_overlaps_0",
+      "doc_ids": "without_overlaps_0",
       "message": "This is a good example of a test sentence.",
       "mentions": [
         {

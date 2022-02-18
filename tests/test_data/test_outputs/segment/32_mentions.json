@@ -3,7 +3,7 @@
   "random_inputs": null,
   "expected_output": [
     {
-      "doc_id": "32_mentions_0",
+      "doc_ids": "32_mentions_0",
       "message": "Long-term oral galactose treatment prevents cognitive deficits in male Wistar rats treated intracerebroventricularly with streptozotocin. Basic and clinical research has demonstrated that dementia of sporadic Alzheimer's disease (sAD) type is associated with dysfunction of the insulin-receptor (IR) system followed by decreased glucose transport via glucose transporter GLUT4 and decreased glucose",
       "mentions": [
         {
@@ -49,7 +49,7 @@
       ]
     },
     {
-      "doc_id": "32_mentions_1",
+      "doc_ids": "32_mentions_1",
       "message": " metabolism in brain cells. An alternative source of energy is d-galactose (the C-4-epimer of d-glucose) which is transported into the brain by insulin-independent GLUT3 transporter where it might be metabolized to glucose via the Leloir pathway. Exclusively parenteral daily injections of galactose induce memory deterioration in rodents and are used to generate animal aging model, but the effects of oral galactose treatment on cognitive functions have never been tested. We have investigated the effects of continuous daily oral galactose (200 mg/kg/day) treatment on cognitive deficits",
       "mentions": [
         {
@@ -95,7 +95,7 @@
       ]
     },
     {
-      "doc_id": "32_mentions_2",
+      "doc_ids": "32_mentions_2",
       "message": " in streptozotocin-induced (STZ-icv) rat model of sAD, tested by Morris Water Maze and Passive Avoidance test, respectively. One month of oral galactose treatment initiated immediately after the STZ-icv administration, successfully prevented development of the STZ-icv-induced cognitive deficits. Beneficial effect of oral galactose was independent of the rat age and of the galactose",
       "mentions": [
         {
@@ -141,7 +141,7 @@
       ]
     },
     {
-      "doc_id": "32_mentions_3",
+      "doc_ids": "32_mentions_3",
       "message": " dose ranging from 100 to 300 mg/kg/day. Additionally, oral galactose administration led to the appearance of galactose in the blood. The increase of galactose concentration in the cerebrospinal fluid was several times lower after oral than after parenteral administration of the same galactose dose. Oral galactose exposure might have beneficial effects on learning and memory ability and could be worth investigating for improvement of cognitive deficits associated with glucose hypometabolism in AD.",
       "mentions": [
         {
