@@ -17,17 +17,17 @@ class RDF_Lexical_Knowledge_Base(Lexical_Knowledge_Base):#good for complex,possi
         LKB = Namespace('http://id.trendnet/lkb/')
         g.bind('http://id.trendnet/vocab#', VOCAB)
         g.bind('http://id.trendnet/lkb/',LKB)
-        concept_attr_names = set()
+        # concept_attr_names = set()
         for concept in concepts:
             concept_uri =  URIRef(f"http://id.trendnet/lkb/Concept/{concept.id}")
             g.add((concept_uri,RDF.type,VOCAB.Concept))
             g.add((concept_uri,VOCAB.id,Literal(concept.id, datatype=XSD.string)))
-            for concept_attr_name,concept_attr in concept.info.items():
-                if concept_attr_name not in concept_attr_names:
-                    concept_attr_names.add(concept_attr_name)
-                    g.add((URIRef(f'http://id.trendnet/vocab#{concept_attr_name}'),RDF.type,VOCAB.Additional_Concept_Attribute))
-                    g.add((URIRef(f'http://id.trendnet/vocab#{concept_attr_name}'),RDFS.label,Literal(concept_attr_name)))
-                g.add((concept_uri,URIRef(f'http://id.trendnet/vocab#{concept_attr_name}'),Literal(concept_attr)))
+            # for concept_attr_name,concept_attr in concept.info.items():
+            #     if concept_attr_name not in concept_attr_names:
+            #         concept_attr_names.add(concept_attr_name)
+            #         g.add((URIRef(f'http://id.trendnet/vocab#{concept_attr_name}'),RDF.type,VOCAB.Additional_Concept_Attribute))
+            #         g.add((URIRef(f'http://id.trendnet/vocab#{concept_attr_name}'),RDFS.label,Literal(concept_attr_name)))
+            #     g.add((concept_uri,URIRef(f'http://id.trendnet/vocab#{concept_attr_name}'),Literal(concept_attr)))
         for term in terms:
             term_uri =  URIRef(f"http://id.trendnet/lkb/Term/{term.id}")
             g.add((term_uri,RDF.type,VOCAB.Term))

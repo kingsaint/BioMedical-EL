@@ -8,10 +8,7 @@
         "string": "Test Relation 2"
       },
       {
-        "id": "C1",
-        "info": {
-          "tst_attr": 3
-        }
+        "id": "C1"
       }
     ]
   ]

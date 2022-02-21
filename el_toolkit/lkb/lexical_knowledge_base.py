@@ -11,7 +11,7 @@ import json
 @dataclass(frozen=True)
 class Concept:
     id: str
-    info: dict = field(default_factory=dict)
+    # info: dict = field(default_factory=dict)
 
 @dataclass(frozen=True)
 class Term:
@@ -66,7 +66,7 @@ class Lexical_Knowledge_Base_BC:
     def read_json(cls,file_path):
         with open(file_path, 'r') as infile:
             dictionary = json.load(infile)
-            concepts = [Concept(**concept) for concept in dictionary["concepts"]]
+            concepts = [Concept(concept["id"]) for concept in dictionary["concepts"]]
             terms = [Term(**term) for term in dictionary["terms"]]
             conceptual_edges = [Conceptual_Edge(**conceptual_edge) for conceptual_edge in dictionary["conceptual_edges"]]
             lexical_edges = [Lexical_Edge(**lexical_edge) for lexical_edge in dictionary["lexical_edges"]]

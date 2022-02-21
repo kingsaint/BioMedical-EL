@@ -1,5 +1,6 @@
 from __future__ import annotations
 from collections import namedtuple
+from dataclasses import dataclass
 import json
 
 from ipymarkup import show_span_line_markup
@@ -11,8 +12,6 @@ class Mention:#Only let document initialize this class
         self._concept_id = concept_id
     def set_doc(self,doc):
         self._doc = doc
-    def tokenize(self,tokenizer):
-        return tokenizer.tokenize(self.text)
     @property
     def mention_data(self):
         return {"start_index":self._start_index,"end_index":self._end_index,"concept_id":self._concept_id}
@@ -98,7 +97,6 @@ class Document:
         segmented_docs,omitted_mentions = segment_recursive(self.message,self.mentions)
         print(f"Mentions Omitted: {omitted_mentions}")
         return segmented_docs
-
     def remove_overlaps(self:Document,broad_strategy:bool=True) -> Document:
         if broad_strategy:
             no_overlap_mention_data = []
@@ -112,57 +110,7 @@ class Document:
             return Document(self.doc_id,self.message,self.mentions)
         else:
             raise NotImplementedError
-
-    def get_bio_encoding(self,doc):
-        context_text = doc.message.lower() if self.lower_case else doc.message
-        tokenized_text = [self._tokenizer.cls_token]
-        mention_start_markers = []
-        mention_end_markers = []
-        sequence_tags = []
-        prev_end_index = 0
-        for m in doc.mentions:
-            if m.start_index >= len(context_text):
-                continue
-            extracted_mention = m.text
-            # Text between the end of last mention and the beginning of current mention
-            prefix = context_text[prev_end_index: m.start_index]
-            # Tokenize prefix and add it to the tokenized text
-            prefix_tokens = self._tokenizer.tokenize(prefix)
-            tokenized_text += prefix_tokens
-            # The sequence tag for prefix tokens is 'O' , 'DNT' --> 'Do Not Tag'
-            for j, token in enumerate(prefix_tokens):
-                sequence_tags.append('O' if not token.startswith('##') else 'DNT')
-            # Add mention start marker to the tokenized text
-            mention_start_markers.append(len(tokenized_text))
-            # tokenized_text += ['[Ms]']
-            # Tokenize the mention and add it to the tokenized text
-            mention_tokens = self._tokenizer.tokenize(extracted_mention)
-            tokenized_text += mention_tokens
-            # Sequence tags for mention tokens -- first token B, other tokens I
-            for j, token in enumerate(mention_tokens):
-                if j == 0:
-                    sequence_tags.append('B')
-                else:
-                    sequence_tags.append('I' if not token.startswith('##') else 'DNT')
-
-            # Add mention end marker to the tokenized text
-            mention_end_markers.append(len(tokenized_text) - 1)
-            # tokenized_text += ['[Me]']
-            # Update prev_end_index
-            prev_end_index = m.end_index
-
-        suffix = context_text[prev_end_index:]
-        if len(suffix) > 0:
-            suffix_tokens = self._tokenizer.tokenize(suffix)
-            tokenized_text += suffix_tokens
-            # The sequence tag for suffix tokens is 'O'
-            for j, token in enumerate(suffix_tokens):
-                sequence_tags.append('O' if not token.startswith('##') else 'DNT')
-        tokenized_text += [self._tokenizer.sep_token]
-
-        return tokenized_text, mention_start_markers, mention_end_markers, sequence_tags
-    def lower(self)-> Document:
-        return Document(self.doc_id + "_L",self.message.lower(),self.mentions)
-
-        
     
+
+
+

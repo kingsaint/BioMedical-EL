@@ -1,22 +1,13 @@
 {
   "concepts": [
     {
-      "id": "C1",
-      "info": {
-        "tst_attr": 3
-      }
+      "id": "C1"
     },
     {
-      "id": "C2",
-      "info": {
-        "tst_attr": 4
-      }
+      "id": "C2"
     },
     {
-      "id": "C3",
-      "info": {
-        "tst_attr": 5
-      }
+      "id": "C3"
     }
   ],
   "terms": [
