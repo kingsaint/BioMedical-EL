@@ -123,7 +123,7 @@ class Lexical_Knowledge_Base(Lexical_Knowledge_Base_BC):#Good for simple queries
         for concept_id,term_ids in self.concept_id_to_term_ids.items():
             for term_id in term_ids:
                 lexical_edges.add(Lexical_Edge(concept_id,term_id))
-        return concepts,terms,conceptual_relations,lexical_edges,conceptual_edges
+        return concepts,terms,conceptual_edges,lexical_edges,conceptual_relations
     
 
 
