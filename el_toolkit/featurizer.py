@@ -76,6 +76,8 @@ class BIO_Encoded_Doc:
             seq_tag_ids.append(tag_to_id_map[t])
         seq_tag_ids.append(-100)  # corresponds to the [SEP] token
         return seq_tag_ids
+    def process_mention(self,mention):
+        
 
 
 
