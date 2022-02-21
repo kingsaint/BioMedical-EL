@@ -74,7 +74,7 @@ class Lexical_Knowledge_Base_BC:
             return cls(concepts,terms,conceptual_relations,lexical_edges,conceptual_edges)
     def write_json(self,file_path):
         concepts,terms,conceptual_edges,lexical_edges,conceptual_relations = self.get_data()
-        dictionary = {"concepts":concepts,"terms":terms,"conceptual_edges":conceptual_edges,"lexical_edges":lexical_edges,"conceptual_relations":conceptual_relations}
+        dictionary = {"concepts":list(concepts),"terms":list(terms),"conceptual_edges":list(conceptual_edges),"lexical_edges":list(lexical_edges),"conceptual_relations":list(conceptual_relations)}
         jsonified = {key:[asdict(entity) for entity in value] for key,value in dictionary.items()}
         with open(file_path, 'w') as outfile:
             json.dump(jsonified,outfile,indent = 2)
@@ -118,11 +118,11 @@ class Lexical_Knowledge_Base(Lexical_Knowledge_Base_BC):#Good for simple queries
         conceptual_edges = set()
         for concept_id_1, related_concepts in self.outward_conceptual_edges.items():
             for rel,concept_2 in related_concepts:
-                conceptual_edges.add(Conceptual_Edge(concept_id_1,concept_2.id,rel.id))
+                conceptual_edges.add(set(concept_id_1,concept_2.id,rel.id))
         lexical_edges = set()
         for concept_id,term_ids in self.concept_id_to_term_ids.items():
             for term_id in term_ids:
-                lexical_edges.add(Lexical_Edge(concept_id,term_id))
+                lexical_edges.add(set(concept_id,term_id))
         return concepts,terms,conceptual_relations,lexical_edges,conceptual_edges
     
 

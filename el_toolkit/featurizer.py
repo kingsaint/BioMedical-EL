@@ -24,16 +24,15 @@ class InputFeatures(object):
         self.seq_tag_ids = seq_tag_ids
 
 class BIO_Encoded_Doc:
-    def __init__(self,doc,tokenizer)
-        tokenized_text = [tokenizer.cls_token]
-        mention_start_markers = []
-        mention_end_markers = []
+    def __init__(self,doc,tokenizer):
+        self.tokenized_text = [tokenizer.cls_token]
+        self.mention_start_markers = []
+        self.mention_end_markers = []
         sequence_tags = []
         prev_end_index = 0
         for m in self.mentions:
-            extracted_mention = m.text
             # Text between the end of last mention and the beginning of current mention
-            prefix = context_text[prev_end_index: m.start_index]
+            prefix = doc.message[prev_end_index: m.start_index]
             # Tokenize prefix and add it to the tokenized text
             prefix_tokens = tokenizer.tokenize(prefix)
             tokenized_text += prefix_tokens
@@ -41,33 +40,47 @@ class BIO_Encoded_Doc:
             for j, token in enumerate(prefix_tokens):
                 sequence_tags.append('O' if not token.startswith('##') else 'DNT')
             # Add mention start marker to the tokenized text
-            mention_start_markers.append(len(tokenized_text))
+            self.mention_start_markers.append(len(tokenized_text))
             # tokenized_text += ['[Ms]']
             # Tokenize the mention and add it to the tokenized text
-            mention_tokens = tokenizer.tokenize(extracted_mention)
+            mention_tokens = tokenizer.tokenize(m.text)
             tokenized_text += mention_tokens
             # Sequence tags for mention tokens -- first token B, other tokens I
             for j, token in enumerate(mention_tokens):
                 if j == 0:
-                    sequence_tags.append('B')
+                    self.sequence_tags.append('B')
                 else:
-                    sequence_tags.append('I' if not token.startswith('##') else 'DNT')
+                    self.sequence_tags.append('I' if not token.startswith('##') else 'DNT')
 
             # Add mention end marker to the tokenized text
-            mention_end_markers.append(len(tokenized_text) - 1)
+            self.mention_end_markers.append(len(tokenized_text) - 1)
             # tokenized_text += ['[Me]']
             # Update prev_end_index
             prev_end_index = m.end_index
 
-        suffix = context_text[prev_end_index:]
+        suffix = doc.message[prev_end_index:]
         if len(suffix) > 0:
             suffix_tokens = tokenizer.tokenize(suffix)
-            tokenized_text += suffix_tokens
+            self.tokenized_text += suffix_tokens
             # The sequence tag for suffix tokens is 'O'
             for j, token in enumerate(suffix_tokens):
-                sequence_tags.append('O' if not token.startswith('##') else 'DNT')
-        tokenized_text += [tokenizer.sep_token]
-        return BIO_Encoded_Doc(tokenized_text, mention_start_markers, mention_end_markers, sequence_tags)
+                self.sequence_tags.append('O' if not token.startswith('##') else 'DNT')
+        self.tokenized_text += [tokenizer.sep_token]
+        self.token_ids = tokenizer.convert_tokens_to_ids(self.tokenized_text)
+        self.tag_ids = self.convert_tags_to_ids(self.seq_tags)
+    @staticmethod
+    def convert_tags_to_ids(seq_tags):
+        tag_to_id_map = {'O': 0, 'B': 1, 'I': 2, 'DNT': -100}
+        seq_tag_ids = [-100]  # corresponds to the [CLS] token
+        for t in seq_tags:
+            seq_tag_ids.append(tag_to_id_map[t])
+        seq_tag_ids.append(-100)  # corresponds to the [SEP] token
+        return seq_tag_ids
+
+
+
+
+        
 
 
 class Featurizer:#Only works for non-overlapping spans.
