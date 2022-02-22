@@ -62,6 +62,9 @@ class Lexical_Knowledge_Base_BC:
     @abstractmethod
     def get_data(self):
         pass
+    def get_named_concepts(self):
+        #return a list of concepts, and a string corresponding to their canonical term.
+        raise NotImplementedError
     @classmethod
     def read_json(cls,file_path):
         with open(file_path, 'r') as infile:
@@ -124,6 +127,10 @@ class Lexical_Knowledge_Base(Lexical_Knowledge_Base_BC):#Good for simple queries
             for term_id in term_ids:
                 lexical_edges.add(Lexical_Edge(concept_id,term_id))
         return concepts,terms,conceptual_edges,lexical_edges,conceptual_relations
+    def get_named_concepts(self,concept_id):
+        #gets a random string corresponding to one of the concept's terms. 
+        raise NotImplementedError
+
     
 
 

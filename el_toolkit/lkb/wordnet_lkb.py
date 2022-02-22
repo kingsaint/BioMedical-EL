@@ -80,20 +80,23 @@ class WordNet_Lexical_Knowledge_Base(Lexical_Knowledge_Base):#good for complex, 
         # Function to collect the nodes in a breadth-first traversal
         def get_descendants(concept_node):
             descendants = []
-            visited_ids = set()
+            visited = set()
             queue = []
             queue.append(concept_node)
-            visited_ids.add(concept_node.concept.id)
+            visited.add(concept_node.concept)
             while queue:
                 concept_node = queue.pop(0)
-                concept_id = concept_node.concept.id
-                descendants.append(concept_node)
-                for rel,concept_node in concept_node.get_related_concepts("inward"):
-                    if concept_id not in visited_ids:
+                concept = concept_node.concept
+                for rel,child_concept_node in concept_node.get_related_concepts("inward"):
+                    child_concept = child_concept_node.concept
+                    if child_concept not in visited:
                         if rel.string==isa_relation_label:
-                            queue.append(concept_node)
-                            descendants.append(concept_node.concept)
-                        visited_ids.add(concept_id)
+                            #print(child_concept)
+                            queue.append(child_concept_node)
+                            descendants.append(child_concept)
+                        visited.add(concept)
             return descendants
         return get_descendants(ancestor_concept)
+
+
         
