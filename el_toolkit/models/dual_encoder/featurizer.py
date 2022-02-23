@@ -1,13 +1,9 @@
 from argparse import ArgumentError
 from collections import namedtuple
-import functools
-import math
-from statistics import mode
 from el_toolkit.models.dual_encoder.document_embedder import Document_Embedder
 from el_toolkit.models.dual_encoder.encoder import Document_Encoder,Entity_Encoder
 from el_toolkit.models.dual_encoder.entity_embedder import Entity_Embedder
 from el_toolkit.mpi_utils import partition
-from pydoc import doc
 import random
 comm = None
 
@@ -28,9 +24,10 @@ class Featurizer:#Only works for non-overlapping spans.
         docs = partition(docs,self._hvd.size(),self._hvd.rank())
         if self._lower_case:
             docs = [doc.lower() for doc in docs]
+        label_ids = self.get_label_ids()
         features = [self.featurize_doc(doc) for doc in docs]
-        return self._hvd.all_gather(features)#list of input_features objects
-
+        all_features = self._hvd.all_gather(features)#list of input_features objects
+        self.get_tensor_dataset(all_features)
     def create_mention_index_matrices(self,encoded_doc):
         # Pad the mention start and end indices
         mention_start_indices = [0] * self._num_max_mentions
@@ -44,9 +41,22 @@ class Featurizer:#Only works for non-overlapping spans.
                 mention_end_indices = encoded_doc.mention_end_markers[:self._num_max_mentions]
 
         return mention_start_indices,mention_end_indices
+    def get_tensor_dataset(feature_list):
+        grouped_features = list(zip(*feature_list))
+        tensors = [torch.tensor(feature_group, dtype=torch.long) for feature_group in grouped_features]  
+        return TensorDataset(*tensors)
+    
+    def get_label_ids(self,doc):
+        label_ids = []
+        for mention in doc.mentions:
+            if mention.concept_id in self._concept_id_to_int.keys():
+                label_ids.append(self._entities(mention.concept_id))
+            else:
+                label_ids.append(-100)
+        return label_ids
     def featurize_doc(self,doc):
         raise NotImplementedError
-    
+
 
 class TrainFeaturizer(Featurizer):
     def __init__(self,*args,use_random_negatives=True,use_hard_negatives=True,num_hard_negatives=8,num_random_negatives=8,model=None,**kwargs):
@@ -58,6 +68,7 @@ class TrainFeaturizer(Featurizer):
         if self._use_hard_negatives:
             if model==None:
                 raise ArgumentError
+            self._num_hard_negatives = 0
         else:
             self._num_hard_negatives = 0
         if not self._use_random_negatives:
@@ -75,7 +86,6 @@ class TrainFeaturizer(Featurizer):
         if self._lower_case:
             doc = doc.lower()
         encoded_doc = self._document_encoder.encode_doc(doc)
-        label_ids = [0 if mention.concept_id in self._concept_id else -100 for mention in doc.mentions]
         if self._encoded_entities:
             encoded_positive_entity = [self._encoded_entities[mention.concept_id] for mention in doc.mentions()]
         else:
@@ -89,6 +99,7 @@ class TrainFeaturizer(Featurizer):
             encoded_candidates.extend(encoded_hard_negatives)
         candidate_token_ids,candidate_token_masks = self.create_mention_index_matrices(encoded_candidates)
         mention_start_indices,mention_end_indices = self._create_mention_index_matrices(encoded_doc)
+        label_ids = self.get_label_ids(doc)
         return TrainingInputFeatures(doc.token_ids,doc.doc_tokens_mask,candidate_token_ids,candidate_token_masks,label_ids,mention_start_indices,mention_end_indices)
 
     def create_candidate_feature_matrices(self,encoded_candidates):
@@ -107,7 +118,7 @@ class TrainFeaturizer(Featurizer):
         encoded_random_negatives = []
         for mention in doc.mentions:
             candidate_pool = self._concept_id_set - set(mention.concept_id)
-            m_random_negative_ids = random.sample(candidate_pool, self._num_candidates - 1)
+            m_random_negative_ids = random.sample(candidate_pool, self._num_random_negatives)
             mention_encoded_random_negatives = []
             for id in m_random_negative_ids:
                 if not self._use_hard_negatives:
@@ -117,48 +128,13 @@ class TrainFeaturizer(Featurizer):
                 encoded_random_negatives.append(mention_encoded_random_negatives)
         return encoded_random_negatives
     def get_hard_negatives(self,encoded_doc):
-        hard_negative_ids = self._all_embedded_entities.get_most_similar(encoded_doc,self._num_candidates)
+        hard_negative_ids = self._all_embedded_entities.get_most_similar(encoded_doc,self._num_hard_negatives)
         encoded_hard_negatives = []
         for mention_hard_negative_ids in hard_negative_ids:
             mention_encoded_hard_negatives = [self._all_encoded_entities[id] for id in mention_hard_negative_ids]
             encoded_hard_negatives.append(mention_encoded_hard_negatives)
         return encoded_hard_negatives
 
-class InputFeatures:
-    def __input__(self,doc_token_ids,doc_token_masks):
-        self._doc_token_ids = doc_token_ids
-        self._doc_token_masks = doc_token_masks
-
-class TrainingInputFeatures(InputFeatures):
-    #Input features for a single doc.
-    def __init__(self, 
-                *args,
-                 candidate_token_ids, 
-                 candidate_token_masks,
-                 label_ids,
-                 mention_start_indices, 
-                 mention_end_indices,
-                 num_mentions, 
-                 seq_tag_ids):
-        self.super().__init__(*args)
-        self.candidate_token_ids = candidate_token_ids
-        self.candidate_token_masks = candidate_token_masks
-        self.label_ids = label_ids
-        self.mention_start_indices = mention_start_indices
-        self.mention_end_indices = mention_end_indices
-        self.num_mentions = num_mentions
-        self.seq_tag_ids = seq_tag_ids
-
-class EvalFeaturizer(Featurizer):
-    def featurize_doc(self,doc):
-       TrainingInputFeatures
-        
-
-
- 
-
-
-    
-    
-
-    
+EvalInputFeatures = namedtuple("EvalInputFeatures",["doc_token_ids","doc_token_masks","label_ids","mention_start_indices", "mention_end_indices","num_mentions","seq_tag_ids"])
+TrainingInputFeatures = namedtuple("TrainingInputFeatures",["doc_token_ids","doc_token_masks","label_ids","mention_start_indices", "mention_end_indices","num_mentions","seq_tag_ids""candidate_token_ids","candidate_token_masks"])
+EvalInputFeatures = namedtuple("EvalInputFeatures",["doc_token_ids","doc_token_masks"])
