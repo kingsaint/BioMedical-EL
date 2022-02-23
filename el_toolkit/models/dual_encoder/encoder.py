@@ -1,4 +1,7 @@
 from collections import namedtuple
+import functools
+
+from el_toolkit.mpi_utils import partition
 
 
 
@@ -6,8 +9,8 @@ class Encoder:
     def __init__(self,tokenizer,max_seq_length):
         self._tokenizer = tokenizer
         self._max_seq_length = max_seq_length
-    def truncate(self,token_ids,padding_token):
-        if len(token_ids) > self._max_seq_length:#truncate
+    def truncate(self,token_ids):
+        if len(token_ids) > self._max_seq_length:
             token_ids = token_ids[:self._max_seq_length]
             tokens_mask = [1] * self._max_seq_length
         else:
@@ -18,7 +21,7 @@ class Encoder:
         return token_ids,tokens_mask
 
 
-class Doc_Encoder(Encoder):
+class Document_Encoder(Encoder):
     def encode_doc(self,doc):
         Encoded_Document = namedtuple("Encoded_Document",["token_ids","doc_tokens_mask","mention_start_markers","mention_end_markers","bio_tag_ids","too_long","num_mentions"])
         tokenized_text,mention_start_markers,mention_end_markers,bio_tags = self.get_bio_encoding(doc)
@@ -81,13 +84,20 @@ class Doc_Encoder(Encoder):
         return seq_tag_ids
 
 class Entity_Encoder(Encoder):
-    def encode_entity(self,term_text):
-        Encoded_Entity = namedtuple("Encoded_Entity",["enitity_token_ids","entity_token_masks"])
+    def encode_entity(self,entity):
+        Encoded_Entity = namedtuple("Encoded_Entity",["entity","enitity_token_ids","entity_token_masks"])
         max_entity_len = self._max_seq_length // 4  # Number of tokens
-        entity_tokens = self._tokenizer.tokenize(term_text)
+        entity_tokens = self._tokenizer.tokenize(entity.term_text)
+        if len(entity_tokens) > max_entity_len:
+            entity_tokens = entity_token_ids[:max_entity_len]
+        entity_tokens = [self._tokenizer.cls_token] + entity_tokens + [self._tokenizer.sep_token]
         entity_token_ids = self._tokenizer.convert_tokens_to_ids(entity_tokens)
-        if len(entity_token_ids) > max_entity_len:
-            entity_token_ids = entity_token_ids[:max_entity_len]
-        entity_token_ids = self._tokenizer.convert_tokens_to_ids(entity_tokens )
         truncated_entity_token_ids,entity_token_masks = self.truncate(entity_tokens)
-        return Encoded_Entity(truncated_entity_token_ids,entity_token_masks)
+        return Encoded_Entity(entity,truncated_entity_token_ids,entity_token_masks)
+
+    def encode_all_entities(self,entities):#distributed
+        entity_keys = partition(entities.keys(),self._hvd.size(),self._hvd.rank())
+        encoded_entities = {entity.concept_id:self._entity_encoder.encode_entity(entity) for entity in entities}
+        _all_entity_encodings = self._hvd.allgather(encoded_entities)
+        all_entity_encodings = functools.reduce(lambda dict_1,dict_2: {**dict_1,**dict_2},_all_entity_encodings)
+        return all_entity_encodings
