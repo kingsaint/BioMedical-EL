@@ -1,12 +1,11 @@
-from argparse import ArgumentError
-from el_toolkit.models.dual_encoder.encoder import Entity_Encoder
-from el_toolkit.models.dual_encoder.featurizer import Encoder
-from mpi_utils import partition
+import functools
+from el_toolkit.mpi_utils import partition
 
 class Entity_Embedder:
-    def __init__(self,model,tokenizer,max_seq_length = 8):
+    def __init__(self,model,hvd=None):
         self._model = model
-        self._encoder = Entity_Encoder(tokenizer,max_seq_length)
+        self._hvd = hvd
+        self._distributed = self._hvd == None
     def embed_entity(self,encoded_entity):
         candidate_embeddings = []
         #logger.info("INFO: Collecting candidate embeddings.")
@@ -20,10 +19,15 @@ class Entity_Embedder:
         candidate_embeddings = torch.cat(candidate_embeddings, dim=0)
         #logger.info("INFO: Collected candidate embeddings.")
         return candidate_embeddings
-    def embed_all_entities(self,encoded_entities,hvd):#distributed
-        encoded_entities = partition(encoded_entities,hvd.size(),hvd.rank())
-        entity_embeddings = self.embed_entities(encoded_entities)
-        all_entity_embeddings = hvd.allgather(entity_embeddings)
+    def embed_all_entities(self,encoded_entities):#distributed
+        if self._distributed:
+            entity_keys = partition(list(encoded_entities.keys()),self._hvd.size(),self._hvdhvd.rank())
+            single_node_encoded_entities = {encoded_entities[entity_key].concept_id:self._entity_embedder.embed_entity(encoded_entities[entity_key]) for entity_key in entity_keys}
+            all_entity_embeddings = self._hvd.allgather(single_node_encoded_entities)
+            entity_embeddings = functools.reduce(lambda dict_1,dict_2: {**dict_1,**dict_2},all_entity_embeddings)
+            return entity_embeddings
+        else:
+            entity_embeddings = {entity.concept_id:self._entity_encoder.embed_entity(encoded_entities[entity]) for entity in encoded_entities}
         return Entity_Embeddings(all_entity_embeddings)
 
 class Entity_Embeddings:

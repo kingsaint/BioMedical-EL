@@ -1,16 +1,7 @@
-#get device from model?
-
-
-from argparse import ArgumentError
-
-from el_toolkit.models.dual_encoder.encoder import Doc_Encoder
-
-
 class Document_Embedder:
-    def __init__(self,model,tokenizer,max_seq_length=8):
+    def __init__(self,model,tokenizer):
         self._model = model
         self._tokenizer = tokenizer
-        self._document_embedder = Doc_Encoder(tokenizer,max_seq_length)
     def get_last_hidden_states(self,encoded_doc):
         # Hard negative candidate mining
         # print("Performing hard negative candidate mining ...")
@@ -32,12 +23,7 @@ class Document_Embedder:
         last_hidden_states = mention_outputs[0]  # B X L X H
         return last_hidden_states
         
-    def get_mention_embeddings(self,encoded_doc=None,doc=None):
-        if encoded_doc == None:
-            if doc == None:
-                raise ArgumentError
-            else: 
-                encoded_doc = self._encoder(doc)
+    def get_mention_embeddings(self,encoded_doc):
         last_hidden_states = self.embed(encoded_doc)
         mention_embeddings = []
         for i, (s_idx, e_idx) in enumerate(zip(encoded_doc.mention_start_markers, encoded_doc.mention_end_markers)):

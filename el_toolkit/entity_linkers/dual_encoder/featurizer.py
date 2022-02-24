@@ -1,32 +1,33 @@
 from argparse import ArgumentError
 from collections import namedtuple
-from el_toolkit.models.dual_encoder.document_embedder import Document_Embedder
-from el_toolkit.models.dual_encoder.encoder import Document_Encoder,Entity_Encoder
-from el_toolkit.models.dual_encoder.entity_embedder import Entity_Embedder
+from el_toolkit.entity_linkers.dual_encoder.document_embedder import Document_Embedder
+from el_toolkit.entity_linkers.dual_encoder.encoder import Document_Encoder,Entity_Encoder
+from el_toolkit.entity_linkers.dual_encoder.entity_embedder import Entity_Embedder
 from el_toolkit.mpi_utils import partition
 import random
 comm = None
 
 #define different input features for different needs.
 class Featurizer:#Only works for non-overlapping spans.
-    def __init__(self,tokenizer,hvd,entities,encoded_entities = None,max_seq_length=256,lower_case=False):
+    def __init__(self,tokenizer,entities,hvd = None,encoded_entities = None,max_seq_length=256,lower_case=False):
         self._lower_case = lower_case
         self._num_candidates
-        if self._comm is None:
-            self._comm = MPI.COMM_WORLD
         self._hvd = hvd
+        self._distributed = self._hvd == None
         if lower_case:
             self._entities = {key:value.lower() for key,value in entities.items()}
         self._encoded_entities = encoded_entities
-        self._entity_encoder = Entity_Encoder(tokenizer,max_seq_length)
-        self._document_encoder = Document_Encoder(tokenizer,max_seq_length)
-    def featurize(self,docs):#distributed
-        docs = partition(docs,self._hvd.size(),self._hvd.rank())
-        if self._lower_case:
-            docs = [doc.lower() for doc in docs]
-        label_ids = self.get_label_ids()
-        features = [self.featurize_doc(doc) for doc in docs]
-        all_features = self._hvd.all_gather(features)#list of input_features objects
+        self._entity_encoder = Entity_Encoder(tokenizer,max_seq_length,self._hvd)
+        self._document_encoder = Document_Encoder(tokenizer,max_seq_length,self._hvd)
+    def featurize(self,docs):
+        if self._distributed:#distributed
+            docs = partition(docs,self._hvd.size(),self._hvd.rank())
+            if self._lower_case:
+                docs = [doc.lower() for doc in docs]
+            features = [self.featurize_doc(doc) for doc in docs]
+            all_features = self._hvd.all_gather(features)#list of input_features objects
+
+
         self.get_tensor_dataset(all_features)
     def create_mention_index_matrices(self,encoded_doc):
         # Pad the mention start and end indices
@@ -41,6 +42,7 @@ class Featurizer:#Only works for non-overlapping spans.
                 mention_end_indices = encoded_doc.mention_end_markers[:self._num_max_mentions]
 
         return mention_start_indices,mention_end_indices
+        
     def get_tensor_dataset(feature_list):
         grouped_features = list(zip(*feature_list))
         tensors = [torch.tensor(feature_group, dtype=torch.long) for feature_group in grouped_features]  
@@ -77,8 +79,8 @@ class TrainFeaturizer(Featurizer):
         self._concept_id_set = self._entities.keys()
         if self._use_hard_negatives:
             if not self._encoded_entities:
-                self._encoded_entities = self._entity_encoder.encode_all_entities(self._entities)
-            self._all_embedded_entities = self._entity_embedder.embed_all_entities(self._encoded_entities.values())
+                self._encoded_entities = self._entity_encoder.encode_all_entities(self._entities,self._hvd)
+            self._all_embedded_entities = self._entity_embedder.embed_all_entities(self._encoded_entities,self._hvd)
         else:
             self._all_embedded_entities = None
     #entities is a dictionary from concept_id to term

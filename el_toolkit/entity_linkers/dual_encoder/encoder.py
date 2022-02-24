@@ -6,9 +6,11 @@ from el_toolkit.mpi_utils import partition
 
 
 class Encoder:
-    def __init__(self,tokenizer,max_seq_length):
+    def __init__(self,tokenizer,max_seq_length,hvd):
         self._tokenizer = tokenizer
         self._max_seq_length = max_seq_length
+        self._hvd = hvd
+        self._distributed = self._hvd == None
     def truncate(self,token_ids):
         if len(token_ids) > self._max_seq_length:
             token_ids = token_ids[:self._max_seq_length]
@@ -95,9 +97,12 @@ class Entity_Encoder(Encoder):
         truncated_entity_token_ids,entity_token_masks = self.truncate(entity_tokens)
         return Encoded_Entity(entity,truncated_entity_token_ids,entity_token_masks)
 
-    def encode_all_entities(self,entities):#distributed
-        entity_keys = partition(entities.keys(),self._hvd.size(),self._hvd.rank())
-        encoded_entities = {entity.concept_id:self._entity_encoder.encode_entity(entity) for entity in entities}
-        _all_entity_encodings = self._hvd.allgather(encoded_entities)
-        all_entity_encodings = functools.reduce(lambda dict_1,dict_2: {**dict_1,**dict_2},_all_entity_encodings)
-        return all_entity_encodings
+    def encode_all_entities(self,entities):
+        if self._distributed:#distributed
+            entity_keys = partition(list(entities.keys()),self._hvd.size(),self._hvd.rank())
+            single_node_encoded_entities = {entities[entity_key].concept_id:self._entity_encoder.encode_entity(entities[entity_key]) for entity_key in entity_keys}
+            all_entity_encodings = self._hvd.allgather(single_node_encoded_entities)
+            entity_encodings = functools.reduce(lambda dict_1,dict_2: {**dict_1,**dict_2},all_entity_encodings)
+        else:
+            entity_encodings = {entity.concept_id:self._entity_encoder.encode_entity(entities[entity]) for entity in entities}
+        return entity_encodings

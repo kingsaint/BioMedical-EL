@@ -1,7 +1,9 @@
 from __future__ import annotations
 from collections import namedtuple
 from dataclasses import dataclass
+from ipymarkup.demo import format_span_line_markup
 import json
+from el_toolkit.data_displayer import Displayable
 
 from ipymarkup import show_span_line_markup
 
@@ -22,9 +24,6 @@ class Mention:#Only let document initialize this class
     def start_index(self):
         return self._start_index
     @property
-    def start_index(self):
-        return self._start_index
-    @property
     def end_index(self):
         return self._end_index
     @property
@@ -36,7 +35,7 @@ class Mention:#Only let document initialize this class
     def __repr__(self):
         return {"start_index":self.start_index,"end_index":self.end_index,"concept_id":self.concept_id,"text":self.text}
 
-class Document:
+class Document(Displayable):
     def __init__(self,doc_id,message,mentions):
         self.doc_id = doc_id
         self.message = message
@@ -65,7 +64,7 @@ class Document:
                     return True
         return False
     def __repr__(self):
-        return f"doc_id:{self.doc_id},message:{self.message},mentions:{self._mentions}"
+        return f"doc_id:{self.doc_id}\n{'-'*20}\nmessage:{self.message}\n{'-'*20}\nmentions:{[mention.__repr__() for mention in self._mentions]}"
     def segment(self:Document,tokenizer,max_mention_per_new_doc) -> list(Document):
         assert not self.check_for_span_overlaps()
         def segment_recursive(remaining_text,remaining_mentions,doc_number=0,prev_seq_len=0):
@@ -110,6 +109,13 @@ class Document:
             return Document(self.doc_id,self.message,self.mentions)
         else:
             raise NotImplementedError
+    def produce_html(self,lkb=None):
+        if lkb == None:
+            spans = [(mention.start_index,mention.end_index,mention.concept_id) for mention in self._mentions]
+        else:
+            spans = [(mention.start_index,mention.end_index,lkb.get_terms_from_concept_id(mention.concept_id)[0].string) for mention in self._mentions]
+        html = "".join(format_span_line_markup(self.message, spans))
+        return html
     
 
 
