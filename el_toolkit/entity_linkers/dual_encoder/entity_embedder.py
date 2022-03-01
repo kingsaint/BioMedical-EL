@@ -1,12 +1,38 @@
-import functools
 from el_toolkit.mpi_utils import partition
 
-class Entity_Embedder:
-    def __init__(self,model,hvd=None):
+
+class Entity_Embedder:#takes an lkb and produces embeddin
+    def __init__(self):
+        raise NotImplementedError
+
+    def embed_entity(self,encoded_entity):
+        raise NotImplementedError
+
+    def embed_entities(self,encoded_entity):#return Entity_Embeddings object
+        raise NotImplementedError
+
+class Entity_Embeddings:
+    def __init__(self,entity_embedding_tensor,embedding_idx):
+        self._entity_embeddings_tensor = entity_embeddings
+    def get_most_similar_concept_idx(self,encoded_doc):
+        num_m = mention_embeddings.size(0)  #
+        all_candidate_embeddings_ = self._entity_embeddings_tensor.unsqueeze(0).expand(num_m, -1, hidden_size) # M X C_all X H
+
+        # candidate_indices = candidate_indices[0]  # original size 1 X 10 -> 10
+        similarity_scores = torch.bmm(mention_embeddings,
+                                    all_candidate_embeddings_.transpose(1, 2))  # M X 1 X C_all
+        similarity_scores = similarity_scores.squeeze(1)  # M X C_all
+        # print(similarity_scores)
+        _, candidate_indices = torch.topk(similarity_scores, k)
+        return candidate_indices
+
+class Dual_Encoder_Entity_Embedder(Entity_Embedder):
+    def __init__(self,model,entity_encoder,hvd=None):
         self._model = model
         self._hvd = hvd
         self._distributed = self._hvd == None
     def embed_entity(self,encoded_entity):
+        #encode entity first
         candidate_embeddings = []
         #logger.info("INFO: Collecting candidate embeddings.")
         with torch.no_grad():
@@ -19,38 +45,14 @@ class Entity_Embedder:
         candidate_embeddings = torch.cat(candidate_embeddings, dim=0)
         #logger.info("INFO: Collected candidate embeddings.")
         return candidate_embeddings
-    def embed_all_entities(self,encoded_entities):#distributed
+    def embed_entities(self,encoded_entities):#distributed
         if self._distributed:
-            entity_keys = partition(list(encoded_entities.keys()),self._hvd.size(),self._hvdhvd.rank())
-            single_node_encoded_entities = {encoded_entities[entity_key].concept_id:self._entity_embedder.embed_entity(encoded_entities[entity_key]) for entity_key in entity_keys}
-            all_entity_embeddings = self._hvd.allgather(single_node_encoded_entities)
-            entity_embeddings = functools.reduce(lambda dict_1,dict_2: {**dict_1,**dict_2},all_entity_embeddings)
-            return entity_embeddings
-        else:
-            entity_embeddings = {entity.concept_id:self._entity_encoder.embed_entity(encoded_entities[entity]) for entity in encoded_entities}
-        return Entity_Embeddings(all_entity_embeddings)
+            encoded_entities =  partition(encoded_entities,self._hvd.size(),self._hvd.rank())
+        entity_embeddings = [self.embed_entity(encoded_entity) for encoded_entity in encoded_entities]
+        if self._distributed:
+            entity_embeddings = self._hvd.allgather(entity_embeddings)
+        return Entity_Embeddings(entity_embeddings)
 
-class Entity_Embeddings:
-    def __init__(self,entity_embeddings):
-        self._entity_embeddings = entity_embeddings
-    def get_most_similar(self,encoded_doc,k=8):
-        #NOTE:Could use batches of encoded_docs? Currently takes batch of mentions,
-        if hasattr(self._model, "module"):
-            hidden_size = self._model.module.hidden_size
-        else:
-            hidden_size = self._model.hidden_size
-        mention_embeddings = self._document_embedder.get_mention_embeddings(encoded_doc)
-        # Perform similarity search
-        num_m = mention_embeddings.size(0)  #
-        all_candidate_embeddings_ = self._entity_embeddings.unsqueeze(0).expand(num_m, -1, hidden_size) # M X C_all X H
 
-        # candidate_indices = candidate_indices[0]  # original size 1 X 10 -> 10
-        similarity_scores = torch.bmm(mention_embeddings,
-                                    all_candidate_embeddings_.transpose(1, 2))  # M X 1 X C_all
-        similarity_scores = similarity_scores.squeeze(1)  # M X C_all
-        # print(similarity_scores)
-        _, candidate_indices = torch.topk(similarity_scores, k)
-
-        return candidate_indices.cpu().detach().numpy().tolist()
     
     

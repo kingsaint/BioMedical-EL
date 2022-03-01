@@ -7,7 +7,6 @@ from rdflib.plugins import sparql
 import json
 from dataclasses import asdict, dataclass, field
 import json
-
 @dataclass(frozen=True)
 class Concept:
     id: str
@@ -127,9 +126,8 @@ class Lexical_Knowledge_Base(Lexical_Knowledge_Base_BC):#Good for simple queries
             for term_id in term_ids:
                 lexical_edges.add(Lexical_Edge(concept_id,term_id))
         return concepts,terms,conceptual_edges,lexical_edges,conceptual_relations
-    def get_named_concepts(self,concept_id):
-        #gets a random string corresponding to one of the concept's terms. 
-        raise NotImplementedError
+    def get_concept_ids(self):
+        return set(self.id_to_concept.keys())
 
     
 
