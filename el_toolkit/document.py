@@ -1,7 +1,6 @@
 from __future__ import annotations
 from collections import namedtuple
 from dataclasses import dataclass
-from el_toolkit.entity_linkers.dual_encoder.encoder import truncate
 from ipymarkup.demo import format_span_line_markup
 import json
 from el_toolkit.data_displayer import Displayable

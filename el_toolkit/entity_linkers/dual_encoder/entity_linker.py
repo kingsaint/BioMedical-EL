@@ -1,12 +1,19 @@
 
 from collections import namedtuple
-from importlib.util import module_for_loader
-from inspect import classify_class_attrs
-from el_toolkit.entity_linkers.dual_encoder.document_embedder import Document_Embedder
-from el_toolkit.entity_linkers.dual_encoder.encoder import Document_Encoder, Entity_Encoder, EntityEncoder, truncate
-from el_toolkit.entity_linkers.dual_encoder.featurizer import DualEncoderFeaturizer
+from el_toolkit.entity_linkers.dual_encoder.featurizer import DualEncoderEvalFeaturizer, DualEncoderTrainFeaturizer
 from el_toolkit.mpi_utils import partition
 from el_toolkit.mpi_utils import partition
+
+def truncate(token_ids,pad_token_id,max_seq_length):
+    if len(token_ids) > max_seq_length:
+        token_ids = token_ids[:max_seq_length]
+        tokens_mask = [1] * max_seq_length
+    else:
+        token_number = len(token_ids)
+        pad_len = max_seq_length - token_number
+        token_ids += [pad_token_id] * pad_len
+        tokens_mask = [1] * token_number + [0] * pad_len
+    return token_ids,tokens_mask
 
 class EntityLinker:
     def __init__(self):
@@ -24,7 +31,10 @@ class DualEmbedderEntityLinker(EntityLinker):
         self._document_embedder = document_embedder
     def train_featurize(self,docs,lkb,num_hard_negatives=0,num_random_negatives=0,num_max_mentions=8):
         featurizer = DualEncoderTrainFeaturizer(self,lkb,num_hard_negatives,num_random_negatives,num_max_mentions)
-    def eval_featurize(self,)
+        return featurizer.featurize(docs)
+    def eval_featurize(self,docs):
+        featurizer = DualEncoderEvalFeaturizer(self)
+        return featurizer.featurize(docs)
 
 class ConceptIndex:
     def __init__(self,concept_ids):
