@@ -4,7 +4,7 @@ from importlib.util import module_for_loader
 from inspect import classify_class_attrs
 from el_toolkit.entity_linkers.dual_encoder.document_embedder import Document_Embedder
 from el_toolkit.entity_linkers.dual_encoder.encoder import Document_Encoder, Entity_Encoder, EntityEncoder, truncate
-from el_toolkit.entity_linkers.dual_encoder.featurizer_2 import DualEncoderFeaturizer
+from el_toolkit.entity_linkers.dual_encoder.featurizer import DualEncoderFeaturizer
 from el_toolkit.mpi_utils import partition
 from el_toolkit.mpi_utils import partition
 
@@ -109,6 +109,7 @@ class BertConceptEmbedder:
             encoded_concepts = hvd.all_gather(encoded_concepts)
         return EncodedConcepts(encoded_concepts,ConceptIndex(concept_ids)),
     def encode_concept(self,concept_id):
+        Encoded_Concept = namedtuple("Encoded_Concept",["token_ids","token_masks"])
         term = self._lkb.get_terms_from_concept_id(concept_id)[0].string
         if self._lower_case:
             term = term.lower()
@@ -119,7 +120,7 @@ class BertConceptEmbedder:
         term_tokens = [self._tokenizer.cls_token] + term_tokens + [self._tokenizer.sep_token]
         term_token_ids =self._tokenizer.convert_tokens_to_ids(term_tokens)
         token_ids,token_masks = truncate(term_tokens,self._tokenizer.pad_token_id)
-        return token_ids,token_masks
+        return Encoded_Concept(token_ids,token_masks)
     def embed_from_concept_encodings(self,encoded_concepts,hvd=None):
         if hvd:
             encoded_concepts = partition(encoded_concepts,hvd.size(),hvd.rank())
@@ -142,7 +143,7 @@ class BertConceptEmbedder:
             hidden_size = self._model.hidden_size
         return EmbeddedConcepts(embedding_tensor,encoded_concepts._concept_idx,hidden_size)
     def get_embeddings(self,hvd=None):
-        encoded_concepts = self.get_encodings()
+        encoded_concepts = self.get_encodings(hvd)
         return self.embed_from_concept_encodings(encoded_concepts,hvd=hvd)
     def get_label_ids(self,doc):
         label_ids = []
