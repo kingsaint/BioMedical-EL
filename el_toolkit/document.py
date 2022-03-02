@@ -116,14 +116,7 @@ class Document(Displayable):
             spans = [(mention.start_index,mention.end_index,lkb.get_terms_from_concept_id(mention.concept_id)[0].string) for mention in self._mentions]
         html = "".join(format_span_line_markup(self.message, spans))
         return html
-    @staticmethod
-    def convert_tags_to_ids(seq_tags):
-        tag_to_id_map = {'O': 0, 'B': 1, 'I': 2, 'DNT': -100}
-        seq_tag_ids = [-100]  # corresponds to the [CLS] token
-        for t in seq_tags:
-            seq_tag_ids.append(tag_to_id_map[t])
-        seq_tag_ids.append(-100)  # corresponds to the [SEP] token
-        return seq_tag_ids
+
 
     
 

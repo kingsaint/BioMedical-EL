@@ -4,7 +4,7 @@ import torch
 from torch.utils.data.dataset import TensorDataset
 
 EvalInputFeatures = namedtuple("EvalInputFeatures",["doc_token_ids","doc_token_masks","mention_start_indices","mention_end_indices","label_ids","num_mentions","seq_tag_ids"])
-TrainingInputFeatures = namedtuple("TrainingInputFeatures",["doc_token_ids","doc_token_masks","mention_start_indices", "mention_end_indices","label_ids","num_mentions","seq_tag_ids""candidate_token_ids","candidate_token_masks"])
+TrainingInputFeatures = namedtuple("TrainingInputFeatures",["doc_token_ids","doc_token_masks","mention_start_indices", "mention_end_indices","label_ids","num_mentions","seq_tag_ids","candidate_token_ids","candidate_token_masks"])
 
 class DualEmbedderFeaturizer:
     def __init__(self,dual_embedder,hvd=None):
@@ -29,8 +29,8 @@ class DualEmbedderFeaturizer:
             else:
                 padded_mention_start_indices = mention_start_indices[:self._num_max_mentions]
                 padded_mention_end_indices = mention_end_indices[:self._num_max_mentions]
-        return mention_start_indices,mention_end_indices
-    def get_tensor_dataset(feature_list):
+        return padded_mention_start_indices,padded_mention_end_indices
+    def get_tensor_dataset(self,feature_list):
         grouped_features = list(zip(*feature_list))
         tensors = [torch.tensor(feature_group, dtype=torch.long) for feature_group in grouped_features]  
         return TensorDataset(*tensors)
@@ -47,12 +47,14 @@ class DualEmbedderTrainFeaturizer(DualEmbedderFeaturizer):
         if num_hard_negatives:
             self._encoded_concepts = self._dual_embedder.concept_embedder.get_encodings(lkb,self._hvd)
             self._embeddings = self._dual_embedder.concept_embedder.embed_from_concept_encodings(self._encoded_concepts,self._hvd)
+        else:
+            self._encoded_concepts = None
     def featurize_doc(self,doc):
         num_mentions = len(doc.mentions)
         doc_token_ids,doc_token_mask,mention_start_indices,mention_end_indices,seq_tag_ids,too_long  = self._dual_embedder.document_embedder.encode_document(doc)
         candidate_id_lists = [[mention.concept_id] for mention in doc.mentions]
         if self._num_random_negatives:
-            random_negative_id_lists = [self.get_random_negative_concept_ids(mention.concept_id,self._num_random_negatives) for mention in doc.mentions]
+            random_negative_id_lists = [self._dual_embedder.concept_embedder.get_random_negative_concept_ids(mention.concept_id,self._num_random_negatives) for mention in doc.mentions]
             for i,random_negative_id_list in enumerate(random_negative_id_lists):
                 candidate_id_lists[i].extend(random_negative_id_list)
         if self._num_hard_negatives:
@@ -62,7 +64,7 @@ class DualEmbedderTrainFeaturizer(DualEmbedderFeaturizer):
                 candidate_id_lists[i].extend(hard_negative_id_list)
         mention_start_indices,mention_end_indices = self.pad_mention_indices(mention_start_indices,mention_end_indices)
         candidate_token_ids,candidate_token_masks = self.get_candidate_tokens(candidate_id_lists)
-        label_ids = self._dual_embedder.concept_embedder.get_label_ids(doc)
+        label_ids = self._dual_embedder.concept_embedder.get_label_ids(doc,self._num_max_mentions)
         return TrainingInputFeatures(doc_token_ids,doc_token_mask,mention_start_indices,mention_end_indices,label_ids,num_mentions,seq_tag_ids,candidate_token_ids,candidate_token_masks)
     def get_candidate_tokens(self,candidate_id_lists):
         candidate_token_ids = [[self._dual_embedder.concept_embedder.tokenizer.pad_token_id] * self._max_entity_len] * (self._num_max_mentions * self._total_number_of_candidates)

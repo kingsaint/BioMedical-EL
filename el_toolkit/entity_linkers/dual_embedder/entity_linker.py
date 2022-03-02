@@ -52,18 +52,18 @@ class ConceptIndex:
         return self._concept_idx_to_concept_id[concept_idx]
     @property
     def concept_ids(self):
-        return list[self._concept_id_to_concept_idx.keys()]
+        return set(self._concept_id_to_concept_idx.keys())
     @property
     def concept_idxs(self):
-        return list[self._concept_idx_to_concept_id.keys()]
+        return set(self._concept_idx_to_concept_id.keys())
     def __len__(self):
         return len(self._concept_id_to_concept_idx)
     def __iter__(self):
-        return self.concept_ids()
+        return (self._concept_idx_to_concept_id for i in range(len(self)))
     def __getitem__(self,index):
         return (self._concept_idx_to_concept_id[index])
     def __contains__(self,concept_id):
-        return concept_id in self.concept_ids()
+        return concept_id in self.concept_ids
     
 
 class EncodedConcepts:
@@ -75,7 +75,7 @@ class EncodedConcepts:
     def __iter__(self):
         return (self._concept_index.get_concept_encoding(concept_id) for concept_id in self._concept_index.__iter__())
     def __getitem__(self,index):
-        concept_id = self._concept_index.__getitem__(self,index)
+        concept_id = self._concept_index[index]
         return self._encoded_concepts[concept_id]
 
 
@@ -115,7 +115,8 @@ class BertConceptEmbedder:
         self._lower_case = lower_case
         self._model = model 
         self._lkb = lkb
-        self._concept_index = list(lkb.get_concept_ids())
+        self._concept_ids = lkb.get_concept_ids()
+        self._concept_index = ConceptIndex(list(self._concept_ids))
     @property
     def max_seq_len(self):
         return self._max_seq_len
@@ -138,11 +139,11 @@ class BertConceptEmbedder:
         max_entity_len = self._max_seq_len // 4  # Number of tokens
         term_tokens = self._tokenizer.tokenize(term)
         if len(term_tokens) > max_entity_len:
-            term_tokens = term_token_ids[:max_entity_len]
+            term_tokens = term_tokens[:max_entity_len]
         term_tokens = [self._tokenizer.cls_token] + term_tokens + [self._tokenizer.sep_token]
         term_token_ids =self._tokenizer.convert_tokens_to_ids(term_tokens)
-        token_ids,token_masks = truncate(term_tokens,self._tokenizer.pad_token_id)
-        return Encoded_Concept(token_ids,token_masks)
+        term_token_ids,term_token_masks = truncate(term_token_ids,self._tokenizer.pad_token_id,max_entity_len)
+        return Encoded_Concept(term_token_ids,term_token_masks)
     def embed_from_concept_encodings(self,encoded_concepts,hvd=None):
         if hvd:
             encoded_concepts = partition(encoded_concepts,hvd.size(),hvd.rank())
@@ -171,13 +172,14 @@ class BertConceptEmbedder:
     def get_embeddings(self,hvd=None):
         encoded_concepts = self.get_encodings(hvd)
         return self.embed_from_concept_encodings(encoded_concepts,hvd=hvd)
-    def get_label_ids(self,doc):
-        label_ids = []
-        for mention in doc.mentions:
-            if mention.concept_id in self._concept_index:
-                label_ids.append(self._concept_index.get_concept_index(mention.concept_id))
-            else:
-                label_ids.append(-100)
+    def get_label_ids(self,doc,num_max_mentions):
+        label_ids = [-1] * num_max_mentions
+        for i,mention in enumerate(doc.mentions):
+            if i < num_max_mentions:
+                if mention.concept_id in self._concept_index:
+                    label_ids[i] = self._concept_index.get_concept_idx(mention.concept_id)
+                else:
+                    label_ids[i] = -100
         return label_ids
     def get_random_negative_concept_ids(self,concept_id,k):
         candidate_pool = self._concept_ids - set(concept_id)
@@ -206,7 +208,7 @@ class DocumentEmbedder:
         prev_end_index = 0
         for m in doc.mentions:
             # Text between the end of last mention and the beginning of current mention
-            prefix = m.text
+            prefix = doc.message[:m.start_index]
             # Tokenize prefix and add it to the tokenized text
             prefix_tokens = self._tokenizer.tokenize(prefix)
             tokenized_text += prefix_tokens
@@ -238,6 +240,7 @@ class DocumentEmbedder:
             # The sequence tag for suffix tokens is 'O'
             for j, token in enumerate(suffix_tokens):
                 sequence_tags.append('O' if not token.startswith('##') else 'DNT')
+        sequence_tags = self.convert_tags_to_ids(sequence_tags)
         tokenized_text += [self._tokenizer.sep_token]
         too_long = len(tokenized_text) > self._max_seq_len
         doc_tokens = self._tokenizer.convert_tokens_to_ids(tokenized_text)
@@ -274,4 +277,12 @@ class DocumentEmbedder:
     def get_mention_embeddings_from_doc(self,doc):
         doc_token_ids,doc_token_mask,mention_start_markers,mention_end_markers,_,_ = self.encode_document(doc)
         return self.get_mention_embeddings(doc_token_ids,doc_token_mask,mention_start_markers,mention_end_markers)
+    @staticmethod
+    def convert_tags_to_ids(seq_tags):
+        tag_to_id_map = {'O': 0, 'B': 1, 'I': 2, 'DNT': -100}
+        seq_tag_ids = [-100]  # corresponds to the [CLS] token
+        for t in seq_tags:
+            seq_tag_ids.append(tag_to_id_map[t])
+        seq_tag_ids.append(-100)  # corresponds to the [SEP] token
+        return seq_tag_ids
 
