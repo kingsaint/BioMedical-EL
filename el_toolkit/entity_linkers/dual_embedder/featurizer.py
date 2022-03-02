@@ -1,7 +1,7 @@
 from collections import namedtuple
 from el_toolkit.mpi_utils import partition
 import torch
-from torch import TensorDataset
+from torch.utils.data.dataset import TensorDataset
 
 EvalInputFeatures = namedtuple("EvalInputFeatures",["doc_token_ids","doc_token_masks","mention_start_indices","mention_end_indices","label_ids","num_mentions","seq_tag_ids"])
 TrainingInputFeatures = namedtuple("TrainingInputFeatures",["doc_token_ids","doc_token_masks","mention_start_indices", "mention_end_indices","label_ids","num_mentions","seq_tag_ids""candidate_token_ids","candidate_token_masks"])
@@ -13,7 +13,7 @@ class DualEmbedderFeaturizer:
     def featurize(self,docs):
         if self._hvd:#distributed
             docs = partition(docs,self._hvd.size(),self._hvd.rank())
-        features = [self.train_featurize_doc(doc) for doc in docs]
+        features = [self.featurize_doc(doc) for doc in docs]
         if self._hvd:
             features = self._hvd.all_gather(features)#list of input_features objects
         return self.get_tensor_dataset(features)
@@ -34,6 +34,7 @@ class DualEmbedderFeaturizer:
         grouped_features = list(zip(*feature_list))
         tensors = [torch.tensor(feature_group, dtype=torch.long) for feature_group in grouped_features]  
         return TensorDataset(*tensors)
+
 class DualEmbedderTrainFeaturizer(DualEmbedderFeaturizer):
     def __init__(self,*args,lkb,num_hard_negatives=0,num_random_negatives=0,num_max_mentions=8,**kwargs):
         super().__init__(*args,**kwargs)
@@ -42,15 +43,13 @@ class DualEmbedderTrainFeaturizer(DualEmbedderFeaturizer):
         self._num_hard_negatives = num_hard_negatives
         self._num_random_negatives = num_random_negatives
         self._num_max_mentions = num_max_mentions
-        self._max_entity_len =  self._dual_embedder.concept_embedder.max_sequence_len//4
+        self._max_entity_len =  self._dual_embedder.concept_embedder.max_seq_len//4
         if num_hard_negatives:
-            self._encoded_concepts = self._dual_embedder.concept_embedder._concept_encoder.from_lkb(lkb,self._hvd)
+            self._encoded_concepts = self._dual_embedder.concept_embedder.get_encodings(lkb,self._hvd)
             self._embeddings = self._dual_embedder.concept_embedder.embed_from_concept_encodings(self._encoded_concepts,self._hvd)
     def featurize_doc(self,doc):
         num_mentions = len(doc.mentions)
-        if self._lower():
-                doc = doc.lower()
-        doc_token_ids,doc_token_mask,mention_start_indices,mention_end_indices,seq_tag_ids,too_long  = self._dual_embedder.document_embedder.encode_document(self,doc)
+        doc_token_ids,doc_token_mask,mention_start_indices,mention_end_indices,seq_tag_ids,too_long  = self._dual_embedder.document_embedder.encode_document(doc)
         candidate_id_lists = [[mention.concept_id] for mention in doc.mentions]
         if self._num_random_negatives:
             random_negative_id_lists = [self.get_random_negative_concept_ids(mention.concept_id,self._num_random_negatives) for mention in doc.mentions]
@@ -84,7 +83,7 @@ class DualEmbedderEvalFeaturizer(DualEmbedderFeaturizer):
         num_mentions = len(doc.mentions)
         if self._lower():
                 doc = doc.lower()
-        doc_token_ids,doc_token_mask,mention_start_indices,mention_end_indices,seq_tag_ids,too_long  = self._dual_embedder.document_embedder.encode_document(self,doc)
+        doc_token_ids,doc_token_mask,mention_start_indices,mention_end_indices,seq_tag_ids,too_long  = self._dual_embedder.document_embedder.encode_document(doc)
         mention_start_indices,mention_end_indices = self.pad_mention_indices(mention_start_indices,mention_end_indices)
         label_ids = self._dual_embedder.concept_embedder.get_label_ids(doc)
         return EvalInputFeatures(doc_token_ids,doc_token_mask,mention_start_indices,mention_end_indices,label_ids,num_mentions,seq_tag_ids)

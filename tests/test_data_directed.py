@@ -4,12 +4,14 @@ from el_toolkit.document import *
 from el_toolkit.lkb.lexical_knowledge_base import Lexical_Knowledge_Base
 from el_toolkit.lkb.rdf_lkb import RDF_Lexical_Knowledge_Base
 from el_toolkit.lkb.wordnet_lkb import WordNet_Lexical_Knowledge_Base
+from el_toolkit.entity_linkers.dual_embedder.entity_linker import DocumentEmbedder
 from transformers import BertTokenizer
 import pytest
 from collections import namedtuple
 import random
 import os
 
+    
 
 class DataDirectedTest:
     filepaths = []
@@ -153,6 +155,20 @@ class TestOverlapRemove(DocumentDirectedTest):
     def test_execute(self,input_filepath):
         assert self.generate_expected_output(input_filepath) == self.get_expected_output(input_filepath)
 
+tokenizer = BertTokenizer.from_pretrained(pretrained_model_name_or_path='monologg/biobert_v1.1_pubmed',do_lower_case=False, cache_dir=None)
+document_embedder = DocumentEmbedder(model=None,tokenizer=tokenizer,max_seq_len=256,lower_case=False)
+class TestDualEncoderDocEncode(DocumentDirectedTest):
+    test_name = "dual_encoder_doc_encode"
+    filepaths = DataDirectedTest.get_all_filepaths("tests/test_data/test_docs/")
+    def generate_expected_output(self,input_filepath,random_input=None):
+        doc = self.get_doc(input_filepath)
+        doc_tokens = tokenizer.tokenize(doc.message)
+        doc_token_ids,doc_tokens_mask,mention_start_markers,mention_end_markers,_,_ =document_embedder.encode_document(doc)
+        return {"tokens":doc_tokens,"doc_token_ids":doc_token_ids,"doc_tokens_mask":doc_tokens_mask,"mention_start_markers":mention_start_markers,"mention_end_markers":mention_end_markers}
+    @pytest.mark.parametrize('input_filepath',filepaths,ids=[filepath.split("/")[-1] for filepath in filepaths])
+    def test_execute(self,input_filepath):
+        assert self.generate_expected_output(input_filepath) == self.get_expected_output(input_filepath)
+
 if __name__ == "__main__":
     #create tests
     for cls in [TestConceptGetting,
@@ -163,7 +179,9 @@ if __name__ == "__main__":
                 TestSynonymGetting,
                 TestPolysemeGetting,
                 TestSegment,
-                TestOverlapRemove
+                TestOverlapRemove,
+                TestDualEncoderDocEncode
+
                 ]:
         cls().write_all_expected_outputs()
 

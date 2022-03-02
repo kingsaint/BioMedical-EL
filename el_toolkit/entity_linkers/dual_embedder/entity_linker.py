@@ -1,16 +1,17 @@
 
 from collections import namedtuple
-from el_toolkit.entity_linkers.dual_encoder.featurizer import DualEncoderEvalFeaturizer, DualEncoderTrainFeaturizer
+import random
+from el_toolkit.entity_linkers.dual_embedder.featurizer import DualEmbedderEvalFeaturizer, DualEmbedderTrainFeaturizer
 from el_toolkit.mpi_utils import partition
 from el_toolkit.mpi_utils import partition
 
-def truncate(token_ids,pad_token_id,max_seq_length):
-    if len(token_ids) > max_seq_length:
-        token_ids = token_ids[:max_seq_length]
-        tokens_mask = [1] * max_seq_length
+def truncate(token_ids,pad_token_id,max_seq_len):
+    if len(token_ids) > max_seq_len:
+        token_ids = token_ids[:max_seq_len]
+        tokens_mask = [1] * max_seq_len
     else:
         token_number = len(token_ids)
-        pad_len = max_seq_length - token_number
+        pad_len = max_seq_len - token_number
         token_ids += [pad_token_id] * pad_len
         tokens_mask = [1] * token_number + [0] * pad_len
     return token_ids,tokens_mask
@@ -25,8 +26,7 @@ class EntityLinker:
     
 
 class DualEmbedderEntityLinker(EntityLinker):
-    def __init__(self,*args,concept_embedder,document_embedder):
-        super().__init__(*args)
+    def __init__(self,concept_embedder,document_embedder):
         self._concept_embedder = concept_embedder
         self._document_embedder = document_embedder
     def train_featurize(self,docs,lkb,num_hard_negatives=0,num_random_negatives=0,num_max_mentions=8):
@@ -35,6 +35,12 @@ class DualEmbedderEntityLinker(EntityLinker):
     def eval_featurize(self,docs):
         featurizer = DualEncoderEvalFeaturizer(self)
         return featurizer.featurize(docs)
+    @property
+    def concept_embedder(self):
+        return self._concept_embedder
+    @property
+    def document_embedder(self):
+        return self._document_embedder
 
 class ConceptIndex:
     def __init__(self,concept_ids):
@@ -103,13 +109,19 @@ class EmbeddedConcepts:
 
 
 class BertConceptEmbedder:
-    def __init__(self,lkb,model,tokenizer,max_seq_length,lower_case):
+    def __init__(self,lkb,model,tokenizer,max_seq_len,lower_case=False):
         self._tokenizer = tokenizer
-        self._max_seq_length = max_seq_length
+        self._max_seq_len = max_seq_len
         self._lower_case = lower_case
         self._model = model 
         self._lkb = lkb
         self._concept_index = list(lkb.get_concept_ids())
+    @property
+    def max_seq_len(self):
+        return self._max_seq_len
+    @property
+    def tokenizer(self):
+        return self._tokenizer
     def get_encodings(self,hvd=None):
         concept_index = self._concept_index
         if hvd:
@@ -117,13 +129,13 @@ class BertConceptEmbedder:
         encoded_concepts =  [(concept_id,self.encode_concept(concept_id)) for concept_id in concept_index]
         if hvd:
             encoded_concepts = hvd.all_gather(encoded_concepts)
-        return EncodedConcepts(encoded_concepts,ConceptIndex(concept_ids)),
+        return EncodedConcepts(encoded_concepts,self._concept_index),
     def encode_concept(self,concept_id):
         Encoded_Concept = namedtuple("Encoded_Concept",["token_ids","token_masks"])
         term = self._lkb.get_terms_from_concept_id(concept_id)[0].string
         if self._lower_case:
             term = term.lower()
-        max_entity_len = self._max_seq_length // 4  # Number of tokens
+        max_entity_len = self._max_seq_len // 4  # Number of tokens
         term_tokens = self._tokenizer.tokenize(term)
         if len(term_tokens) > max_entity_len:
             term_tokens = term_token_ids[:max_entity_len]
@@ -136,12 +148,7 @@ class BertConceptEmbedder:
             encoded_concepts = partition(encoded_concepts,hvd.size(),hvd.rank())
         candidate_embeddings = []
         for encoded_concept in encoded_concepts:
-            with torch.no_grad():
-                candidate_token_ids = torch.LongTensor([encoded_concept.entity_token_ids]).to(self._model.device)
-                candidate_token_masks = torch.LongTensor([encoded_concept.entity_tokens_masks]).to(self._model.device)
-                candidate_outputs = self._model.bert_candidate.bert(input_ids=candidate_token_ids,attention_mask=candidate_token_masks)
-                candidate_embedding = candidate_outputs[1]
-                candidate_embeddings.append(candidate_embedding)
+            candidate_embeddings.append(self.embed_concept_encoding(encoded_concept))
                 #logger.info(str(candidate_embedding))
         if hvd:
             candidate_embeddings = hvd.all_gather(candidate_embeddings)
@@ -151,7 +158,16 @@ class BertConceptEmbedder:
             hidden_size = self._model.module.hidden_size
         else:
             hidden_size = self._model.hidden_size
-        return EmbeddedConcepts(embedding_tensor,encoded_concepts._concept_idx,hidden_size)
+        return EmbeddedConcepts(embedding_tensor,self._concept_idx,hidden_size)
+    def embed_concept_encoding(self,encoded_concept):
+        with torch.no_grad():
+            candidate_token_ids = torch.LongTensor([encoded_concept.entity_token_ids]).to(self._model.device)
+            candidate_token_masks = torch.LongTensor([encoded_concept.entity_tokens_masks]).to(self._model.device)
+            candidate_outputs = self._model.bert_candidate.bert(input_ids=candidate_token_ids,attention_mask=candidate_token_masks)
+            candidate_embedding = candidate_outputs[1]
+            return candidate_embedding
+    def get_embedding(self,concept_id):
+        return self.get_embedding(self.encode_concept(concept_id))
     def get_embeddings(self,hvd=None):
         encoded_concepts = self.get_encodings(hvd)
         return self.embed_from_concept_encodings(encoded_concepts,hvd=hvd)
@@ -169,11 +185,20 @@ class BertConceptEmbedder:
         return m_random_negative_ids
 
 class DocumentEmbedder:
-    def __init__(self,model,tokenizer,max_seq_length):
+    def __init__(self,model,tokenizer,max_seq_len,lower_case=False):
         self._model = model
         self._tokenizer = tokenizer
-        self._max_seq_length = max_seq_length
+        self._max_seq_len = max_seq_len
+        self._lower_case = lower_case
+    @property
+    def tokenizer(self):
+        return self._tokenizer
+    @property
+    def max_seq_len(self):
+        return self._max_seq_len
     def encode_document(self,doc):
+        if self._lower_case:
+            doc = doc.lower()
         mention_start_markers = []
         mention_end_markers = []
         tokenized_text = [self._tokenizer.cls_token]
@@ -181,7 +206,7 @@ class DocumentEmbedder:
         prev_end_index = 0
         for m in doc.mentions:
             # Text between the end of last mention and the beginning of current mention
-            prefix = doc.message[prev_end_index: m.start_index]
+            prefix = m.text
             # Tokenize prefix and add it to the tokenized text
             prefix_tokens = self._tokenizer.tokenize(prefix)
             tokenized_text += prefix_tokens
@@ -214,9 +239,10 @@ class DocumentEmbedder:
             for j, token in enumerate(suffix_tokens):
                 sequence_tags.append('O' if not token.startswith('##') else 'DNT')
         tokenized_text += [self._tokenizer.sep_token]
-        too_long = len(tokenized_text) > self._max_seq_length
-        doc_tokens,doc_tokens_mask = truncate(tokenized_text,self._tokenizer.pad_token_id,self._max_seq_length)
-        bio_tags,_ = truncate(bio_tags,-100,self._max_seq_length)
+        too_long = len(tokenized_text) > self._max_seq_len
+        doc_tokens = self._tokenizer.convert_tokens_to_ids(tokenized_text)
+        doc_tokens,doc_tokens_mask = truncate(doc_tokens,self._tokenizer.pad_token_id,self._max_seq_len)
+        sequence_tags,_ = truncate(sequence_tags,-100,self._max_seq_len)
         return doc_tokens,doc_tokens_mask,mention_start_markers,mention_end_markers,sequence_tags,too_long
     def get_last_hidden_states(self,doc_token_ids,doc_token_mask):
         # Hard negative candidate mining
