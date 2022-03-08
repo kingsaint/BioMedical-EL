@@ -72,6 +72,9 @@ class ConceptEmbedder:
         self._lkb = lkb
         self._concept_ids = lkb.get_concept_ids()
         self._concept_index = ConceptIndex(list(self._concept_ids))
+    @property
+    def lkb(self):
+        return self._lkb
     def get_encodings(self,hvd=None):
         concept_index = self._concept_index
         if hvd:
