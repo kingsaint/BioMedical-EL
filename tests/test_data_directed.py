@@ -4,7 +4,7 @@ from el_toolkit.document import *
 from el_toolkit.lkb.lexical_knowledge_base import Lexical_Knowledge_Base
 from el_toolkit.lkb.rdf_lkb import RDF_Lexical_Knowledge_Base
 from el_toolkit.lkb.wordnet_lkb import WordNet_Lexical_Knowledge_Base
-from el_toolkit.entity_linkers.dual_embedder.entity_linker import DocumentEmbedder
+from el_toolkit.entity_linkers.dual_embedder.document_embedder import DocumentEmbedder
 from transformers import BertTokenizer
 import pytest
 from collections import namedtuple
@@ -156,7 +156,7 @@ class TestOverlapRemove(DocumentDirectedTest):
         assert self.generate_expected_output(input_filepath) == self.get_expected_output(input_filepath)
 
 tokenizer = BertTokenizer.from_pretrained(pretrained_model_name_or_path='monologg/biobert_v1.1_pubmed',do_lower_case=False, cache_dir=None)
-document_embedder = DocumentEmbedder(model=None,tokenizer=tokenizer,max_seq_len=256,lower_case=False)
+document_embedder = DocumentEmbedder(bert_model=None,tokenizer=tokenizer,max_seq_len=256,lower_case=False)
 class TestDualEncoderDocEncode(DocumentDirectedTest):
     test_name = "dual_encoder_doc_encode"
     filepaths = DataDirectedTest.get_all_filepaths("tests/test_data/test_docs/")

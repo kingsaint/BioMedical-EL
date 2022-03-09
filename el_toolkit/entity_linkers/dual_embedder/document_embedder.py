@@ -1,7 +1,5 @@
 from el_toolkit.entity_linkers.dual_embedder.entity_linker import truncate
 import torch
-
-
 class DocumentEmbedder:
     def __init__(self,span_detector,tokenizer,max_seq_len,lower_case=False):
         self._span_detector = span_detector
@@ -24,7 +22,7 @@ class DocumentEmbedder:
         prev_end_index = 0
         for m in doc.mentions:
             # Text between the end of last mention and the beginning of current mention
-            prefix = doc.message[:m.start_index]
+            prefix = doc.message[prev_end_index:m.start_index]
             # Tokenize prefix and add it to the tokenized text
             prefix_tokens = self._tokenizer.tokenize(prefix)
             tokenized_text += prefix_tokens
@@ -32,7 +30,8 @@ class DocumentEmbedder:
             for j, token in enumerate(prefix_tokens):
                 sequence_tags.append('O' if not token.startswith('##') else 'DNT')
             # Add mention start marker to the tokenized text
-            mention_start_markers.append(len(tokenized_text))
+            mention_start = len(tokenized_text)
+            mention_start_markers.append(mention_start)
             # tokenized_text += ['[Ms]']
             # Tokenize the mention and add it to the tokenized text
             mention_tokens = self._tokenizer.tokenize(m.text)
@@ -43,9 +42,9 @@ class DocumentEmbedder:
                     sequence_tags.append('B')
                 else:
                     sequence_tags.append('I' if not token.startswith('##') else 'DNT')
-
+            mention_end = len(tokenized_text) - 1
             # Add mention end marker to the tokenized text
-            mention_end_markers.append(len(tokenized_text) - 1)
+            mention_end_markers.append(mention_end)
             # tokenized_text += ['[Me]']
             # Update prev_end_index
             prev_end_index = m.end_index

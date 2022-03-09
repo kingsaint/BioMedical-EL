@@ -11,7 +11,7 @@ class DualEmbedderFeaturizer:
         self._dual_embedder = dual_embedder
         self._hvd = hvd
     def featurize(self,docs,**intialization_kwargs):
-        self.initalize(**intialization_kwargs)
+        self.initialize(**intialization_kwargs)
         if self._hvd:#distributed
             docs = partition(docs,self._hvd.size(),self._hvd.rank())
         features = [self.featurize_doc(doc) for doc in docs]
@@ -35,11 +35,11 @@ class DualEmbedderFeaturizer:
         grouped_features = list(zip(*feature_list))
         tensors = [torch.tensor(feature_group, dtype=torch.long) for feature_group in grouped_features]  
         return TensorDataset(*tensors)
-    def initialize():
+    def initialize(self):
         pass
 
 class DualEmbedderTrainFeaturizer(DualEmbedderFeaturizer):
-    def __init__(self,*args,lkb):
+    def __init__(self,lkb,*args):
         super().__init__(*args)
         self._lkb = lkb
         self._max_entity_len =  self._dual_embedder.concept_embedder.max_seq_len//4
@@ -68,15 +68,15 @@ class DualEmbedderTrainFeaturizer(DualEmbedderFeaturizer):
 
 
 class BertDualEmbedderTrainFeaturizer(DualEmbedderTrainFeaturizer):
-    TrainingInputFeatures = namedtuple("TrainingInputFeatures",["doc_token_ids","doc_token_masks","mention_start_indices", "mention_end_indices","label_ids","num_mentions","seq_tag_ids","candidate_masks","candidate_token_ids","candidate_token_masks"])
+    TrainingInputFeatures = namedtuple("TrainingInputFeatures",["doc_token_ids","doc_token_masks","mention_start_indices", "mention_end_indices","label_ids","num_mentions","candidate_token_ids","candidate_token_masks","candidate_masks"])
     def featurize_doc(self,doc):
         num_mentions = len(doc.mentions)
-        doc_token_ids,doc_token_mask,mention_start_indices,mention_end_indices,seq_tag_ids,_  = self._dual_embedder.document_embedder.encode_document(doc)
+        doc_token_ids,doc_token_mask,mention_start_indices,mention_end_indices,_,_  = self._dual_embedder.document_embedder.encode_document(doc)
         mention_start_indices,mention_end_indices = self.pad_mention_indices(mention_start_indices,mention_end_indices)
         candidate_id_lists = self.get_candidate_id_lists(doc,doc_token_ids,doc_token_mask,mention_start_indices,mention_end_indices)
         candidate_token_ids,candidate_token_masks,candidate_masks = self.get_candidate_tokens(candidate_id_lists)
         label_ids = self._dual_embedder.concept_embedder.get_label_ids(doc,self._num_max_mentions)
-        return self.TrainingInputFeatures(doc_token_ids,doc_token_mask,mention_start_indices,mention_end_indices,label_ids,num_mentions,seq_tag_ids,candidate_token_ids,candidate_token_masks,candidate_masks)
+        return self.TrainingInputFeatures(doc_token_ids,doc_token_mask,mention_start_indices,mention_end_indices,label_ids,num_mentions,candidate_token_ids,candidate_token_masks,candidate_masks)
     def get_candidate_tokens(self,candidate_id_lists):
         candidate_token_ids = [[self._dual_embedder.concept_embedder.tokenizer.pad_token_id] * self._max_entity_len] * (self._num_max_mentions * self._total_number_of_candidates)
         candidate_token_masks= [[0] * self._max_entity_len] * (self._num_max_mentions * self._total_number_of_candidates)
@@ -97,12 +97,11 @@ class BertDualEmbedderTrainFeaturizer(DualEmbedderTrainFeaturizer):
 class DualEmbedderEvalFeaturizer(DualEmbedderFeaturizer):
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
-        self.EvalInputFeatures = namedtuple("EvalInputFeatures",["doc_token_ids","doc_token_masks","mention_start_indices","mention_end_indices","label_ids","num_mentions","seq_tag_ids"])
+        self.EvalInputFeatures = namedtuple("EvalInputFeatures",["doc_token_ids","doc_token_masks","mention_start_indices","mention_end_indices","label_ids","seq_tag_ids"])
     def featurize_doc(self,doc):
-        num_mentions = len(doc.mentions)
         if self._lower():
                 doc = doc.lower()
         doc_token_ids,doc_token_mask,mention_start_indices,mention_end_indices,seq_tag_ids,too_long  = self._dual_embedder.document_embedder.encode_document(doc)
         mention_start_indices,mention_end_indices = self.pad_mention_indices(mention_start_indices,mention_end_indices)
         label_ids = self._dual_embedder.concept_embedder.get_label_ids(doc)
-        return self.EvalInputFeatures(doc_token_ids,doc_token_mask,mention_start_indices,mention_end_indices,label_ids,num_mentions,seq_tag_ids)
+        return self.EvalInputFeatures(doc_token_ids,doc_token_mask,mention_start_indices,mention_end_indices,label_ids,seq_tag_ids)

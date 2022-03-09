@@ -31,7 +31,7 @@ class BertMentionDetectorModel(nn.Module):#Bert Embeddings + Span Scores
                 mention_start_indices=None,#B x MN
                 mention_end_indices=None,#B x MN
                 ):
-        mention_outputs = self.bert_mention.bert(
+        mention_outputs = self.bert_mention(
                 input_ids=doc_token_ids,
                 attention_mask=doc_token_masks,
             )
@@ -125,12 +125,13 @@ class BertMentionDetectorModel(nn.Module):#Bert Embeddings + Span Scores
         for i in range(mention_start_indices.size(0)):
             for j in range(mention_start_indices.size(1)):
                 s_idx = mention_start_indices[i][j].item()
-                if s_idx != -1:#padding mentionx
+                if s_idx != -1:#padding mention
                     e_idx = mention_end_indices[i][j].item()
-                    m_embd = torch.mean(last_hidden_states[i, s_idx:e_idx + 1, :], dim=1)
+                    token_embeddings = last_hidden_states[i, s_idx:e_idx + 1, :]
+                    m_embd = torch.mean(token_embeddings, dim=0).unsqueeze(0)
                     mention_embeddings.append(m_embd)
-        mention_embeddings = torch.cat(mention_embeddings, dim=0)
-        return mention_embeddings # (B*MN) x H all mentions
+        mention_embeddings = torch.cat(mention_embeddings, dim=0) #MB x H
+        return mention_embeddings # MB x H all mentions
     def get_eval_mention_embeddings(self,inferred_doc_indices,inferred_start_indices,inferred_end_indices,last_hidden_states):
         mention_embeddings = []
         for i in range(inferred_doc_indices(0)):
@@ -145,9 +146,8 @@ class BertMentionDetectorModel(nn.Module):#Bert Embeddings + Span Scores
         return valid_doc_indices[inferred_span_indices],valid_start_indices[inferred_span_indices],valid_end_indices[inferred_span_indices]
 
 class DualEmbedderModel(nn.Module):
-    def __init__(self,bert_mention,candidate_embedder):
+    def __init__(self,bert_mention):
         super().__init__()
-        self.candidate_embedder = candidate_embedder
         self.span_detector = BertMentionDetectorModel(bert_mention)
         self.loss_fn_linker = nn.CrossEntropyLoss(ignore_index=-1)
         self.BIGINT = 1e31
@@ -156,33 +156,36 @@ class DualEmbedderModel(nn.Module):
                 doc_token_masks,#B x DL
                 mention_start_indices=None,#B x MN
                 mention_end_indices=None,#B x MN
+                num_mentions=None,#B
                 all_candidate_embeddings=None, #C x H (Not batched)
-                labels=None,#B x MN,
+                label_ids=None,#B x MN,
                 candidate_masks=None,#B x (MN * C) 
                 **kwargs
-                
                 ):
         if self.training:
             assert mention_start_indices is not None
             assert mention_end_indices is not None
-            assert labels is not None
+            assert label_ids is not None
+            
+            max_mention_number = mention_start_indices.size(-1)
             last_hidden_states,ner_loss,_,_,_ = self.span_detector(doc_token_ids=doc_token_ids,
                                                                    doc_token_masks=doc_token_masks,
                                                                    mention_start_indices=mention_start_indices,
                                                                    mention_end_indices=mention_end_indices
                                                                     ) #(B*MN) * H
-            mention_embeddings = self.span_detector.get_training_mention_embeddings(mention_start_indices,mention_end_indices,last_hidden_states)
+            mention_embeddings = self.span_detector.get_training_mention_embeddings(mention_start_indices,mention_end_indices,last_hidden_states) # MB x H
+            candidate_embeddings = self.get_candidate_embeddings(**kwargs,num_mentions)#(B*MN*C) x H
+            candidate_embeddings = candidate_embeddings.reshape(b_number,max_mention_number,-1,self._hidden_size)#B x MN x C x H
+            mention_mask = torch.where(mention_start_indices!=-1)
+            candidate_embeddings = candidate_embeddings[mention_mask[0],mention_mask[1],:,:] #MB x C x H
+            linker_logits = self.similarity_score(mention_embeddings,candidate_embeddings)#MB x C
+            candidate_masks = candidate_masks.reshape(b_number,max_mention_number,-1)# B x MN x C
+            candidate_masks = candidate_masks[mention_mask[0],mention_mask[1],:]# MB x C
             
-            pooled_candidate_outputs,n_c = self.get_candidate_embeddings(**kwargs)
-            n_c = self.get_number_candidates(**kwargs)
-            candidate_embeddings = pooled_candidate_outputs.reshape(-1, n_c, self.span_detector.hidden_size) #(B*MN) X C X H
-            linker_logits = self.similarity_score(mention_embeddings,candidate_embeddings)#(B*MN) x C
-            candidate_masks = candidate_masks.reshape(-1,n_c)# (B*MN) x C
             #Mask off Padding Candidate
             linker_logits = linker_logits - (1.0 - candidate_masks) * self.BIGINT# (B*MN) x C
-            
-            labels.reshape(-1)# MB
-            linking_loss = self.loss_fn_linker(linker_logits, labels)
+            label_ids = label_ids.reshape(-1)# MB
+            linking_loss = self.loss_fn_linker(linker_logits, label_ids)
             return  linker_logits,ner_loss + linking_loss
         else:
             assert all_candidate_embeddings is not None
@@ -192,10 +195,14 @@ class DualEmbedderModel(nn.Module):
             mention_embeddings = self.span_detector.get_eval_mention_embeddings(inferred_doc_indices,inferred_start_indices,inferred_end_indices)
             linker_logits = self.all_similarity_score(self,mention_embeddings,all_candidate_embeddings)
             return linker_logits,None
-    def similarity_score(mention_embeddings,#(MB) x H
-                         candidate_embeddings,#(MB) x C x H
+    @staticmethod
+    def similarity_score(
+                         mention_embeddings,#MB x H
+                         candidate_embeddings,#MB x C x H
                         ):
         #logger.info(str(all_candidate_embeddings.size()))
+        print(mention_embeddings.shape)
+        print(candidate_embeddings.shape)
         linker_logits = torch.bmm(mention_embeddings.unsqueeze(1), candidate_embeddings.transpose(1, 2))# (MB) x 1 x C
         linker_logits = linker_logits.squeeze(1) #(MB) x C
         return linker_logits
@@ -212,9 +219,10 @@ class DualEmbedderModel(nn.Module):
         raise NotImplementedError
 
 class BertDualEmbedderModel(DualEmbedderModel):
-    def __init__(self,*args):
+    def __init__(self,bert_candidate,*args):
         super().__init__(*args)
-        assert type(self.candidate_embedder) == BertModel
+        self._bert_candidate = bert_candidate
+        assert type(self._bert_candidate) == BertModel
     @classmethod
     def from_pretrained_bert_filepath(cls,filepath):
         bert_mention = BertModel.from_pretrained(filepath)
@@ -223,24 +231,26 @@ class BertDualEmbedderModel(DualEmbedderModel):
     
     def get_candidate_embeddings(self,
                                  candidate_token_ids,#B x (MN * C) x CL
-                                 candidate_token_masks#B x (MN * C) x CL (Not sure why they originally flattened this tensor)   
+                                 candidate_token_masks,#B x (MN * C) x CL (Not sure why they originally flattened this tensor)
+            
                                  ):
-        seq_len = candidate_token_ids.size(2)
+        seq_len = candidate_token_ids.size(-1)
         candidate_token_ids = candidate_token_ids.reshape(-1, seq_len)  # (B*MN*C) X CL (flatten)
         candidate_token_masks = candidate_token_masks.reshape(-1, seq_len)  # (B*MN*C) X CL (flatten)
-
-        candidate_outputs = self.bert_candidate.bert(
+        candidate_outputs = self._bert_candidate(
             input_ids=candidate_token_ids,
-            attention_mask=candidate_token_masks,
+            attention_mask=candidate_token_masks
         )
-        return candidate_outputs[1]
-    def get_number_of_candidates(self,candidate_token_ids):
+
+        return candidate_outputs[1] #(B*MN*C) x H
+    def get_number_of_candidates(self,candidate_token_ids,**kwargs):
         return candidate_token_ids.size()[1]
 
 class MLPEmbedderModel(DualEmbedderModel):
-    def __init__(self,*args):
+    def __init__(self,mlp,*args):
         super().__init__(*args)
-        assert type(self.candidate_embedder) == torch.nn.Linear
+        assert type(self._mlp) == torch.nn.Linear
+        self._mlp = mlp
     def get_candidate_embeddings(self,pretrained_concept_embedding):#get fine-tuned concept embedding 
             return self.candidate_embedder(pretrained_concept_embedding)
     def get_number_of_candidates(self,pretrained_concept_embedding):
