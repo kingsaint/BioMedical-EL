@@ -10,6 +10,7 @@ import json
 @dataclass(frozen=True)
 class Concept:
     id: str
+    #canonical_string_id: str
     # info: dict = field(default_factory=dict)
 
 @dataclass(frozen=True)
@@ -92,10 +93,11 @@ class Lexical_Knowledge_Base(Lexical_Knowledge_Base_BC):#Good for simple queries
         self.inward_conceptual_edges = defaultdict(list)
         self.concept_id_to_term_ids = defaultdict(list)
         self.term_id_to_concept_ids = defaultdict(list)
+        print("Creating conceptual relation index")
         for edge in conceptual_edges:
-            print("Creating conceptual relation index")
             self.outward_conceptual_edges[edge.concept_id_1].append((self.id_to_concept_relations[edge.rel_id],self.id_to_concept[edge.concept_id_2]))
             self.inward_conceptual_edges[edge.concept_id_2].append((self.id_to_concept_relations[edge.rel_id],self.id_to_concept[edge.concept_id_1]))
+        print("Creating conceptual relation index")
         for edge in lexical_edges:
             self.concept_id_to_term_ids[edge.concept_id].append(edge.term_id)
             self.term_id_to_concept_ids[edge.term_id].append(edge.concept_id)
