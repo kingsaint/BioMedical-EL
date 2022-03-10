@@ -167,15 +167,15 @@ class DualEmbedderModel(nn.Module):
             assert mention_end_indices is not None
             assert label_ids is not None
             
-            max_mention_number = mention_start_indices.size(-1)
+            b_number,max_mention_number = mention_start_indices.shape
             last_hidden_states,ner_loss,_,_,_ = self.span_detector(doc_token_ids=doc_token_ids,
                                                                    doc_token_masks=doc_token_masks,
                                                                    mention_start_indices=mention_start_indices,
                                                                    mention_end_indices=mention_end_indices
                                                                     ) #(B*MN) * H
             mention_embeddings = self.span_detector.get_training_mention_embeddings(mention_start_indices,mention_end_indices,last_hidden_states) # MB x H
-            candidate_embeddings = self.get_candidate_embeddings(**kwargs,num_mentions)#(B*MN*C) x H
-            candidate_embeddings = candidate_embeddings.reshape(b_number,max_mention_number,-1,self._hidden_size)#B x MN x C x H
+            candidate_embeddings = self.get_candidate_embeddings(**kwargs)#(B*MN*C) x H
+            candidate_embeddings = candidate_embeddings.reshape(b_number,max_mention_number,-1,self.hidden_size)#B x MN x C x H
             mention_mask = torch.where(mention_start_indices!=-1)
             candidate_embeddings = candidate_embeddings[mention_mask[0],mention_mask[1],:,:] #MB x C x H
             linker_logits = self.similarity_score(mention_embeddings,candidate_embeddings)#MB x C
@@ -184,7 +184,7 @@ class DualEmbedderModel(nn.Module):
             
             #Mask off Padding Candidate
             linker_logits = linker_logits - (1.0 - candidate_masks) * self.BIGINT# (B*MN) x C
-            label_ids = label_ids.reshape(-1)# MB
+            label_ids = label_ids[mention_mask[0],mention_mask[1]]#MB
             linking_loss = self.loss_fn_linker(linker_logits, label_ids)
             return  linker_logits,ner_loss + linking_loss
         else:
@@ -222,6 +222,7 @@ class BertDualEmbedderModel(DualEmbedderModel):
     def __init__(self,bert_candidate,*args):
         super().__init__(*args)
         self._bert_candidate = bert_candidate
+        self.hidden_size  = bert_candidate.config.hidden_size
         assert type(self._bert_candidate) == BertModel
     @classmethod
     def from_pretrained_bert_filepath(cls,filepath):
@@ -231,8 +232,7 @@ class BertDualEmbedderModel(DualEmbedderModel):
     
     def get_candidate_embeddings(self,
                                  candidate_token_ids,#B x (MN * C) x CL
-                                 candidate_token_masks,#B x (MN * C) x CL (Not sure why they originally flattened this tensor)
-            
+                                 candidate_token_masks,#B x (MN * C) x CL (Not sure why they originally flattened this tensor
                                  ):
         seq_len = candidate_token_ids.size(-1)
         candidate_token_ids = candidate_token_ids.reshape(-1, seq_len)  # (B*MN*C) X CL (flatten)

@@ -106,6 +106,8 @@ class ConceptEmbedder:
             if i < num_max_mentions:
                 if mention.concept_id in self._concept_index:
                     label_ids[i] = 1
+                # else:
+                #     label_ids[i] = -100 
         return label_ids
     def get_random_negative_concept_ids(self,concept_id,k):
         candidate_pool = self._concept_ids - set(concept_id)
