@@ -10,7 +10,7 @@ import json
 @dataclass(frozen=True)
 class Concept:
     id: str
-    concept_name: str
+    #concept_name: str
     # info: dict = field(default_factory=dict)
 
 @dataclass(frozen=True)
