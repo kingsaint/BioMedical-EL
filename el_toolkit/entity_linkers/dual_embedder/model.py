@@ -201,8 +201,6 @@ class DualEmbedderModel(nn.Module):
                          candidate_embeddings,#MB x C x H
                         ):
         #logger.info(str(all_candidate_embeddings.size()))
-        print(mention_embeddings.shape)
-        print(candidate_embeddings.shape)
         linker_logits = torch.bmm(mention_embeddings.unsqueeze(1), candidate_embeddings.transpose(1, 2))# (MB) x 1 x C
         linker_logits = linker_logits.squeeze(1) #(MB) x C
         return linker_logits

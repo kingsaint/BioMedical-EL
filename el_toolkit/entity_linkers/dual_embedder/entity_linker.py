@@ -1,8 +1,10 @@
 
 from collections import namedtuple
+from turtle import forward
 from el_toolkit.entity_linkers.dual_embedder.featurizer import BertDualEmbedderTrainFeaturizer, DualEmbedderEvalFeaturizer, DualEmbedderTrainFeaturizer
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
 from torch.utils.data.distributed import DistributedSampler
+from tqdm import tqdm, trange
 from el_toolkit.mpi_utils import partition
 
 def truncate(token_ids,pad_token_id,max_seq_len):
@@ -35,13 +37,22 @@ class DualEmbedderEntityLinker(EntityLinker):
         return self._train_featurizer.featurize(docs,num_hard_negatives=num_hard_negatives,num_random_negatives=num_random_negatives,num_max_mentions=num_max_mentions)
     def eval_featurize(self,docs):
         return self._eval_featurizer.featurize(docs)
-    def train(self,docs,num_hard_negatives=0,num_random_negatives=0,num_max_mentions=8,batch_size=1,hvd=None):
+    def train(self,docs,num_hard_negatives=0,num_random_negatives=0,num_max_mentions=8,batch_size=1,num_epochs=10,hvd=None):
         train_dataset = self.train_featurize(docs,num_hard_negatives=num_hard_negatives,num_random_negatives=num_random_negatives,num_max_mentions=num_max_mentions)
         train_sampler = RandomSampler(train_dataset) if not hvd else DistributedSampler(train_dataset)
         train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=batch_size)
-        for batch in train_dataloader:
-            inputs = {field:batch[i] for i,field in enumerate(self._train_featurizer.TrainingInputFeatures._fields)}
-            self._dual_embedder_model(**inputs)
+        self._dual_embedder_model.zero_grad()
+        epochs_trained = 0
+        train_iterator = trange(epochs_trained, num_epochs, desc="Epoch" #, disable=args.local_rank not in [-1, 0]
+                               )
+        for epoch_number in train_iterator:
+            epoch_iterator = tqdm(train_dataloader, desc="Iteration")#, disable=args.local_rank not in [-1, 0])
+            for step, batch in enumerate(epoch_iterator):
+                batch = tuple(t.to(self._dual_embedder_model.device) for t in batch)
+                self._dual_embedder_model.train()
+                inputs = {field:batch[i] for i,field in enumerate(self._train_featurizer.TrainingInputFeatures._fields)}
+                _,loss = self._dual_embedder_model.forward(**inputs)
+        #print(loss)
     @property
     def concept_embedder(self):
         return self._concept_embedder
