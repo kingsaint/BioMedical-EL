@@ -48,7 +48,7 @@ class DualEmbedderEntityLinker(EntityLinker):
         t_total = len(docs) // gradient_accumulation_steps * num_epochs
         self._dual_embedder_model.zero_grad()
         epochs_trained = 0
-        train_iterator = trange(epochs_trained, num_epochs, desc="Epoch" #, disable=args.local_rank not in [-1, 0]
+        train_iterator = trange(epochs_trained, num_epochs, desc="Epoch",disable=self._hvd.rank()!=0 if self._hvd else False 
                                )
         no_decay = ["bias", "LayerNorm.weight"]
         optimizer_grouped_parameters = [
@@ -75,7 +75,7 @@ class DualEmbedderEntityLinker(EntityLinker):
         for epoch_number in train_iterator:
             train_dataset = self.train_featurize(docs,num_hard_negatives=num_hard_negatives,num_random_negatives=num_random_negatives,num_max_mentions=num_max_mentions)
             train_sampler = RandomSampler(train_dataset) if not self._hvd else DistributedSampler(train_dataset, num_replicas=self._hvd.size(), rank=self._hvd.rank())
-            train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=batch_size,disable=self._hvd.rank()!=0 if self._hvd else False)
+            train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=batch_size)
             num_examples = len(train_dataloader)
             epoch_iterator = tqdm(train_dataloader, desc="Iteration",disable=True)#, disable=args.local_rank not in [-1, 0])
             epoch_loss = 0 
