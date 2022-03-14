@@ -59,12 +59,10 @@ class DualEmbedderEntityLinker(EntityLinker):
             {"params": [p for n, p in self._dual_embedder_model.named_parameters() if any(nd in n for nd in no_decay)], "weight_decay": weight_decay},
         ]
         if self._hvd:#distributed
-            batch_size = single_node_batch_size * self._hvd.size()
             optimizer = AdamW(optimizer_grouped_parameters, lr=learning_rate * self._hvd.size(), eps=adam_epsilon)
             optimizer = self._hvd.DistributedOptimizer(optimizer, named_parameters=self._dual_embedder_model.named_parameters())
             self._hvd.broadcast_parameters(self._dual_embedder_model.state_dict(), root_rank=0)
         else:
-            batch_size = single_node_batch_size
             optimizer = AdamW(optimizer_grouped_parameters, lr=learning_rate, eps=adam_epsilon)
 
         scheduler = get_linear_schedule_with_warmup(
@@ -75,7 +73,7 @@ class DualEmbedderEntityLinker(EntityLinker):
         for epoch_number in train_iterator:
             train_dataset = self.train_featurize(docs,num_hard_negatives=num_hard_negatives,num_random_negatives=num_random_negatives,num_max_mentions=num_max_mentions)
             train_sampler = RandomSampler(train_dataset) if not self._hvd else DistributedSampler(train_dataset, num_replicas=self._hvd.size(), rank=self._hvd.rank())
-            train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=batch_size)
+            train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=single_node_batch_size)
             num_examples = len(train_dataloader)
             epoch_iterator = tqdm(train_dataloader, desc="Iteration",disable=True)#, disable=args.local_rank not in [-1, 0])
             epoch_loss = 0 
