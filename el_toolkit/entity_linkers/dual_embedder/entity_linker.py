@@ -1,5 +1,6 @@
 
 from collections import namedtuple
+from distutils.dep_util import newer_group
 from turtle import forward
 from el_toolkit.entity_linkers.dual_embedder.featurizer import BertDualEmbedderTrainFeaturizer, DualEmbedderEvalFeaturizer, DualEmbedderTrainFeaturizer
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
@@ -46,13 +47,9 @@ class DualEmbedderEntityLinker(EntityLinker):
         return self._train_featurizer.featurize(docs,num_hard_negatives=num_hard_negatives,num_random_negatives=num_random_negatives,num_max_mentions=num_max_mentions)
     def eval_featurize(self,docs):
         return self._eval_featurizer.featurize(docs)
-    def train(self,docs,num_hard_negatives=0,num_random_negatives=0,num_max_mentions=8,batch_size=1,num_epochs=100,learning_rate=1e-5,adam_epsilon=1e-8,weight_decay=0.0,warmup_steps=0,gradient_accumulation_steps=1,max_grad_norm=1.0,hvd=None):
+    def train(self,docs,num_hard_negatives=0,num_random_negatives=0,num_max_mentions=8,single_node_batch_size=1,num_epochs=100,learning_rate=1e-5,adam_epsilon=1e-8,weight_decay=0.0,warmup_steps=0,gradient_accumulation_steps=1,max_grad_norm=1.0,hvd=None):
         writer = SummaryWriter()
-        train_dataset = self.train_featurize(docs,num_hard_negatives=num_hard_negatives,num_random_negatives=num_random_negatives,num_max_mentions=num_max_mentions)
-        train_sampler = RandomSampler(train_dataset) if not hvd else DistributedSampler(train_dataset)
-        train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=batch_size)
-        t_total = len(train_dataloader) // gradient_accumulation_steps * num_epochs
-        num_examples = len(train_dataloader)
+        t_total = len(docs) // gradient_accumulation_steps * num_epochs
         self._dual_embedder_model.zero_grad()
         epochs_trained = 0
         train_iterator = trange(epochs_trained, num_epochs, desc="Epoch" #, disable=args.local_rank not in [-1, 0]
@@ -65,17 +62,24 @@ class DualEmbedderEntityLinker(EntityLinker):
             },
             {"params": [p for n, p in self._dual_embedder_model.named_parameters() if any(nd in n for nd in no_decay)], "weight_decay": weight_decay},
         ]
-        optimizer = AdamW(optimizer_grouped_parameters, lr=learning_rate, eps=adam_epsilon)
+        if hvd:#distributed
+            batch_size = single_node_batch_size * hvd.size()
+            optimizer = AdamW(optimizer_grouped_parameters, lr=learning_rate * hvd.size(), eps=adam_epsilon)
+            optimizer = hvd.DistributedOptimizer(optimizer, named_parameters=self._dual_embedder_model.named_parameters())
+            hvd.broadcast_parameters(self._dual_embedder_model.state_dict(), root_rank=0)
+        else:
+            batch_size = single_node_batch_size
+            optimizer = AdamW(optimizer_grouped_parameters, lr=learning_rate, eps=adam_epsilon)
+
         scheduler = get_linear_schedule_with_warmup(
             optimizer, num_warmup_steps=warmup_steps, num_training_steps=t_total
         )
         self._dual_embedder_model.train()
         for epoch_number in train_iterator:
-            # train_dataset = self.train_featurize(docs,num_hard_negatives=num_hard_negatives,num_random_negatives=num_random_negatives,num_max_mentions=num_max_mentions)
-            # train_sampler = RandomSampler(train_dataset) if not hvd else DistributedSampler(train_dataset)
-            # train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=batch_size)
-            # t_total = len(train_dataloader) // gradient_accumulation_steps * num_epochs
-            # num_examples = len(train_dataloader)
+            train_dataset = self.train_featurize(docs,num_hard_negatives=num_hard_negatives,num_random_negatives=num_random_negatives,num_max_mentions=num_max_mentions,hvd=hvd)
+            train_sampler = RandomSampler(train_dataset) if not hvd else DistributedSampler(train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
+            train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=batch_size)
+            num_examples = len(train_dataloader)
             epoch_iterator = tqdm(train_dataloader, desc="Iteration",disable=True)#, disable=args.local_rank not in [-1, 0])
             epoch_loss = 0 
             for step, batch in enumerate(epoch_iterator):
@@ -90,7 +94,6 @@ class DualEmbedderEntityLinker(EntityLinker):
                     self._dual_embedder_model.zero_grad()
                 epoch_loss += loss.item()
             writer.add_scalar('Loss/train', epoch_loss/num_examples, epoch_number)
-        #print(loss)
     @property
     def concept_embedder(self):
         return self._concept_embedder

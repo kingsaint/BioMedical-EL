@@ -105,7 +105,7 @@ class ConceptEmbedder:
         for i,mention in enumerate(doc.mentions):
             if i < num_max_mentions:
                 if mention.concept_id in self._concept_index:
-                    label_ids[i] = 1
+                    label_ids[i] = 0
                 # else:
                 #     label_ids[i] = -100 
         return label_ids
