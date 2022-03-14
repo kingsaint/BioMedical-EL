@@ -3,21 +3,22 @@ from el_toolkit.mpi_utils import partition
 import torch
 from torch.utils.data.dataset import TensorDataset
 
-
+COMM = MPI.COMM_WORLD
 InferenceFeatures = namedtuple("InferenceInputFeatures",["doc_token_ids","doc_token_masks"])
 
 class DualEmbedderFeaturizer:
     def __init__(self,dual_embedder,hvd=None):
         self._dual_embedder = dual_embedder
         self._hvd = hvd
+    
     def featurize(self,docs,**intialization_kwargs):
         self.initialize(**intialization_kwargs)
         if self._hvd:#distributed
             docs = partition(docs,self._hvd.size(),self._hvd.rank())
         features = [self.featurize_doc(doc) for doc in docs]
-        self.get_tensor_dataset(features)
         if self._hvd:
-            features = self._hvd.allgather(features)#list of input_features objects
+            features = COMM.allgather(features)#list of input_features objects
+        self.get_tensor_dataset(features)
         return features
     def pad_mention_indices(self,mention_start_indices,mention_end_indices):
         # Pad the mention start and end indices
