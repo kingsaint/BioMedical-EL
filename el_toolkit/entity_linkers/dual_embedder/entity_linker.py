@@ -74,20 +74,27 @@ class DualEmbedderEntityLinker(EntityLinker):
         for epoch_number in train_iterator:
             train_dataset = self.train_featurize(docs,num_hard_negatives=num_hard_negatives,num_random_negatives=num_random_negatives,num_max_mentions=num_max_mentions)
             train_sampler = RandomSampler(train_dataset) if not self._hvd else DistributedSampler(train_dataset, num_replicas=self._hvd.size(), rank=self._hvd.rank())
-            train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=batch_size)
+            train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=batch_size,disable=self._hvd.rank()!=0)
             num_examples = len(train_dataloader)
             epoch_iterator = tqdm(train_dataloader, desc="Iteration",disable=True)#, disable=args.local_rank not in [-1, 0])
             epoch_loss = 0 
             print("TRAINING STARTING")
             for step, batch in enumerate(epoch_iterator):
+                print(1)
                 batch = tuple(t.to(self._device) for t in batch)
+                print(2)
                 inputs = {field:batch[i] for i,field in enumerate(self._train_featurizer.TrainingInputFeatures._fields)}
+                print(3)
                 _,loss = self._dual_embedder_model.forward(**inputs)
+                print(4)
                 loss.backward()
+                print(5)
                 if (step + 1) % gradient_accumulation_steps == 0:
                     torch.nn.utils.clip_grad_norm_(self._dual_embedder_model.parameters(), max_grad_norm)
                     optimizer.step()
+                    print(6)
                     scheduler.step()  # Update learning rate schedule
+                    print(7)
                     self._dual_embedder_model.zero_grad()
                 epoch_loss += loss.item()
             writer.add_scalar('Loss/train', epoch_loss/num_examples, epoch_number)
