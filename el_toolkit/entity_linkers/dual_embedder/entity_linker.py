@@ -71,14 +71,14 @@ class DualEmbedderEntityLinker(EntityLinker):
             optimizer, num_warmup_steps=warmup_steps, num_training_steps=t_total
         )
         self._dual_embedder_model.train()
+        print("TRAINING STARTING")
         for epoch_number in train_iterator:
             train_dataset = self.train_featurize(docs,num_hard_negatives=num_hard_negatives,num_random_negatives=num_random_negatives,num_max_mentions=num_max_mentions)
             train_sampler = RandomSampler(train_dataset) if not self._hvd else DistributedSampler(train_dataset, num_replicas=self._hvd.size(), rank=self._hvd.rank())
-            train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=batch_size,disable=self._hvd.rank()!=0)
+            train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=batch_size,disable=self._hvd.rank()!=0 if self._hvd else False)
             num_examples = len(train_dataloader)
             epoch_iterator = tqdm(train_dataloader, desc="Iteration",disable=True)#, disable=args.local_rank not in [-1, 0])
             epoch_loss = 0 
-            print("TRAINING STARTING")
             for step, batch in enumerate(epoch_iterator):
                 print(1)
                 batch = tuple(t.to(self._device) for t in batch)
