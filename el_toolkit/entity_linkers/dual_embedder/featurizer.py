@@ -18,7 +18,7 @@ class DualEmbedderFeaturizer:
             docs = partition(docs,self._hvd.size(),self._hvd.rank())
         features = [self.featurize_doc(doc) for doc in docs]
         if self._hvd:
-            features = COMM.allgather(features)#list of input_features objects
+            features = [features for node_features in COMM.allgather(features) for features in node_features]
         self.get_tensor_dataset(features)
         return features
     def pad_mention_indices(self,mention_start_indices,mention_end_indices):
