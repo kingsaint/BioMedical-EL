@@ -46,7 +46,7 @@ class DualEmbedderEntityLinker(EntityLinker):
         return self._train_featurizer.featurize(docs,num_hard_negatives=num_hard_negatives,num_random_negatives=num_random_negatives,num_max_mentions=num_max_mentions)
     def eval_featurize(self,docs):
         return self._eval_featurizer.featurize(docs)
-    def train(self,docs,num_hard_negatives=0,num_random_negatives=0,num_max_mentions=8,batch_size=1,num_epochs=100,learning_rate=1e5,adam_epsilon=1e-8,weight_decay=0.0,warmup_steps=0,gradient_accumulation_steps=1,max_grad_norm=1.0,hvd=None):
+    def train(self,docs,num_hard_negatives=0,num_random_negatives=0,num_max_mentions=8,batch_size=1,num_epochs=100,learning_rate=1e-5,adam_epsilon=1e-8,weight_decay=0.0,warmup_steps=0,gradient_accumulation_steps=1,max_grad_norm=1.0,hvd=None):
         writer = SummaryWriter()
         train_dataset = self.train_featurize(docs,num_hard_negatives=num_hard_negatives,num_random_negatives=num_random_negatives,num_max_mentions=num_max_mentions)
         train_sampler = RandomSampler(train_dataset) if not hvd else DistributedSampler(train_dataset)
@@ -68,6 +68,7 @@ class DualEmbedderEntityLinker(EntityLinker):
         scheduler = get_linear_schedule_with_warmup(
             optimizer, num_warmup_steps=warmup_steps, num_training_steps=t_total
         )
+        num_examples = len(train_dataloader)
         for epoch_number in train_iterator:
             epoch_iterator = tqdm(train_dataloader, desc="Iteration",disable=True)#, disable=args.local_rank not in [-1, 0])
             epoch_loss = 0 
@@ -83,7 +84,7 @@ class DualEmbedderEntityLinker(EntityLinker):
                     scheduler.step()  # Update learning rate schedule
                     self._dual_embedder_model.zero_grad()
                 epoch_loss += loss.item()
-            writer.add_scalar('Loss/train', epoch_loss/batch_size, epoch_number)
+            writer.add_scalar('Loss/train', epoch_loss/num_examples, epoch_number)
         #print(loss)
     @property
     def concept_embedder(self):
