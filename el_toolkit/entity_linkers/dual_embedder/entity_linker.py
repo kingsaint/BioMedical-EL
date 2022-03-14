@@ -38,8 +38,8 @@ class DualEmbedderEntityLinker(EntityLinker):
         self._dual_embedder_model = dual_embedder_model
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._dual_embedder_model.to(self._device)
-    def train_featurize(self,docs,num_hard_negatives=0,num_random_negatives=0,num_max_mentions=8):
-        return self._train_featurizer.featurize(docs,num_hard_negatives=num_hard_negatives,num_random_negatives=num_random_negatives,num_max_mentions=num_max_mentions)
+    def train_featurize(self,docs,num_hard_negatives=0,num_random_negatives=0,num_max_mentions=8,hvd=hvd):
+        return self._train_featurizer.featurize(docs,num_hard_negatives=num_hard_negatives,num_random_negatives=num_random_negatives,num_max_mentions=num_max_mentions,hvd=hvd)
     def eval_featurize(self,docs):
         return self._eval_featurizer.featurize(docs)
     def train(self,docs,num_hard_negatives=0,num_random_negatives=0,num_max_mentions=8,single_node_batch_size=1,num_epochs=100,learning_rate=1e-5,adam_epsilon=1e-8,weight_decay=0.0,warmup_steps=0,gradient_accumulation_steps=1,max_grad_norm=1.0,hvd=None):
