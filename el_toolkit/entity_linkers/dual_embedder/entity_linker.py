@@ -78,6 +78,7 @@ class DualEmbedderEntityLinker(EntityLinker):
             num_examples = len(train_dataloader)
             epoch_iterator = tqdm(train_dataloader, desc="Iteration",disable=True)#, disable=args.local_rank not in [-1, 0])
             epoch_loss = 0 
+            print("TRAINING STARTING")
             for step, batch in enumerate(epoch_iterator):
                 batch = tuple(t.to(self._device) for t in batch)
                 inputs = {field:batch[i] for i,field in enumerate(self._train_featurizer.TrainingInputFeatures._fields)}
