@@ -39,8 +39,8 @@ class DualEmbedderFeaturizer:
         pass
 
 class DualEmbedderTrainFeaturizer(DualEmbedderFeaturizer):
-    def __init__(self,lkb,*args):
-        super().__init__(*args)
+    def __init__(self,lkb,*args,**kwargs):
+        super().__init__(*args,**kwargs)
         self._lkb = lkb
         self._max_entity_len =  self._dual_embedder.concept_embedder.max_seq_len//4
     def initialize(self,num_hard_negatives=0,num_random_negatives=0,num_max_mentions=8):

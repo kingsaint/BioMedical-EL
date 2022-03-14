@@ -72,8 +72,8 @@ class DualEmbedderEntityLinker(EntityLinker):
         )
         self._dual_embedder_model.train()
         for epoch_number in train_iterator:
-            train_dataset = self.train_featurize(docs,num_hard_negatives=num_hard_negatives,num_random_negatives=num_random_negatives,num_max_mentions=num_max_mentions,hvd=hvd)
-            train_sampler = RandomSampler(train_dataset) if not self._hvd else DistributedSampler(train_dataset, num_replicas=hvd.size(), rank=hvd.rank())
+            train_dataset = self.train_featurize(docs,num_hard_negatives=num_hard_negatives,num_random_negatives=num_random_negatives,num_max_mentions=num_max_mentions)
+            train_sampler = RandomSampler(train_dataset) if not self._hvd else DistributedSampler(train_dataset, num_replicas=self._hvd.size(), rank=self._hvd.rank())
             train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=batch_size)
             num_examples = len(train_dataloader)
             epoch_iterator = tqdm(train_dataloader, desc="Iteration",disable=True)#, disable=args.local_rank not in [-1, 0])
