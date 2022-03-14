@@ -1,14 +1,10 @@
-
-from collections import namedtuple
-from distutils.dep_util import newer_group
-from turtle import forward
+=
 from el_toolkit.entity_linkers.dual_embedder.featurizer import BertDualEmbedderTrainFeaturizer, DualEmbedderEvalFeaturizer, DualEmbedderTrainFeaturizer
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
 import torch
 from tqdm import tqdm, trange
-from el_toolkit.mpi_utils import partition
 
 from transformers import (
     AdamW,
