@@ -52,6 +52,7 @@ class DualEmbedderEntityLinker(EntityLinker):
         train_sampler = RandomSampler(train_dataset) if not hvd else DistributedSampler(train_dataset)
         train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=batch_size)
         t_total = len(train_dataloader) // gradient_accumulation_steps * num_epochs
+        num_examples = len(train_dataloader)
         self._dual_embedder_model.zero_grad()
         epochs_trained = 0
         train_iterator = trange(epochs_trained, num_epochs, desc="Epoch" #, disable=args.local_rank not in [-1, 0]
@@ -68,18 +69,22 @@ class DualEmbedderEntityLinker(EntityLinker):
         scheduler = get_linear_schedule_with_warmup(
             optimizer, num_warmup_steps=warmup_steps, num_training_steps=t_total
         )
-        num_examples = len(train_dataloader)
+        self._dual_embedder_model.train()
         for epoch_number in train_iterator:
+            # train_dataset = self.train_featurize(docs,num_hard_negatives=num_hard_negatives,num_random_negatives=num_random_negatives,num_max_mentions=num_max_mentions)
+            # train_sampler = RandomSampler(train_dataset) if not hvd else DistributedSampler(train_dataset)
+            # train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=batch_size)
+            # t_total = len(train_dataloader) // gradient_accumulation_steps * num_epochs
+            # num_examples = len(train_dataloader)
             epoch_iterator = tqdm(train_dataloader, desc="Iteration",disable=True)#, disable=args.local_rank not in [-1, 0])
             epoch_loss = 0 
             for step, batch in enumerate(epoch_iterator):
                 batch = tuple(t.to(self._device) for t in batch)
-                self._dual_embedder_model.train()
                 inputs = {field:batch[i] for i,field in enumerate(self._train_featurizer.TrainingInputFeatures._fields)}
                 _,loss = self._dual_embedder_model.forward(**inputs)
                 loss.backward()
-                if (step + 1) % gradient_accumulation_steps:
-                    torch.nn.utils.clip_grad_norm_(self._dual_embedder_model.zero_grad().parameters(), max_grad_norm)
+                if (step + 1) % gradient_accumulation_steps == 0:
+                    torch.nn.utils.clip_grad_norm_(self._dual_embedder_model.parameters(), max_grad_norm)
                     optimizer.step()
                     scheduler.step()  # Update learning rate schedule
                     self._dual_embedder_model.zero_grad()
