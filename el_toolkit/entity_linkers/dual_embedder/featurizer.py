@@ -15,9 +15,10 @@ class DualEmbedderFeaturizer:
         if self._hvd:#distributed
             docs = partition(docs,self._hvd.size(),self._hvd.rank())
         features = [self.featurize_doc(doc) for doc in docs]
+        self.get_tensor_dataset(features)
         if self._hvd:
             features = self._hvd.allgather(features)#list of input_features objects
-        return self.get_tensor_dataset(features)
+        return features
     def pad_mention_indices(self,mention_start_indices,mention_end_indices):
         # Pad the mention start and end indices
         padded_mention_start_indices = [-1] * self._num_max_mentions
