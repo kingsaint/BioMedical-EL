@@ -33,7 +33,7 @@ class Mention:#Only let document initialize this class
     def doc(self):
         return self._doc
     def __repr__(self):
-        return {"start_index":self.start_index,"end_index":self.end_index,"concept_id":self.concept_id,"text":self.text}
+        return str({"start_index":self.start_index,"end_index":self.end_index,"concept_id":self.concept_id,"text":self.text})
 
 class Document(Displayable):
     def __init__(self,doc_id,message,mentions):
