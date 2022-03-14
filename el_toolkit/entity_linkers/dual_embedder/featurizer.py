@@ -1,5 +1,6 @@
 from collections import namedtuple
 from el_toolkit.mpi_utils import partition
+from mpi4py import MPI
 import torch
 from torch.utils.data.dataset import TensorDataset
 
