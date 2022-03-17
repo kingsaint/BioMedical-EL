@@ -1,7 +1,7 @@
 from el_toolkit.entity_linkers.dual_embedder.entity_linker import truncate
 import torch
 class DocumentEmbedder:
-    def __init__(self,span_detector,tokenizer,max_seq_len,lower_case=False):
+    def __init__(self,span_detector,tokenizer,max_seq_len=256,lower_case=False):
         self._span_detector = span_detector
         self._tokenizer = tokenizer
         self._max_seq_len = max_seq_len
@@ -63,21 +63,12 @@ class DocumentEmbedder:
         sequence_tags,_ = truncate(sequence_tags,-100,self._max_seq_len)
         return doc_tokens,doc_tokens_mask,mention_start_markers,mention_end_markers,sequence_tags,too_long
     def get_last_hidden_states(self,doc_token_ids,doc_token_mask):
-        # Hard negative candidate mining
-        # print("Performing hard negative candidate mining ...")
-        # Get mention embeddings
         input_token_ids = torch.LongTensor([doc_token_ids]).to(self._span_detector.device)
         input_token_masks = torch.LongTensor([doc_token_mask]).to(self._span_detector.device)
-        # Forward pass through the mention encoder of the dual encoder
         with torch.no_grad():
-            mention_outputs = self._span_detector(
-                    input_ids=input_token_ids,
-                    attention_mask=input_token_masks,
-                )
-        last_hidden_states = mention_outputs[0]  # B X L X H
-        return last_hidden_states
+            return  self._span_detector.get_last_hidden_states(input_token_ids,input_token_masks)
     def get_mention_embeddings(self,doc_token_ids,doc_token_mask,mention_start_markers,mention_end_markers):
-        last_hidden_states = self.span_detector.get_last_hidden_states(doc_token_ids,doc_token_mask)
+        last_hidden_states = self.get_last_hidden_states(doc_token_ids,doc_token_mask)
         return self.span_detector.pool_mentions(mention_start_markers,mention_end_markers,doc_token_ids,doc_token_mask)
     def get_mention_embeddings_from_doc(self,doc):
         doc_token_ids,doc_token_mask,mention_start_markers,mention_end_markers,_,_ = self.encode_document(doc)

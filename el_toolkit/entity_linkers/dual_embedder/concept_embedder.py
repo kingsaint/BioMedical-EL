@@ -68,38 +68,39 @@ class EmbeddedConcepts:
         return self._embedding_tensor[index]
 
 class ConceptEmbedder:
-    def __init__(self,lkb): 
+    def __init__(self,lkb,hvd): 
+        self._hvd= hvd
         self._lkb = lkb
         self._concept_ids = lkb.get_concept_ids()
         self._concept_index = ConceptIndex(list(self._concept_ids))
     @property
     def lkb(self):
         return self._lkb
-    def get_encodings(self,hvd=None):
+    def get_encodings(self):
         concept_index = self._concept_index
-        if hvd:
-            concept_index = partition(concept_index,hvd.size(),hvd.rank())
+        if self._hvd:
+            concept_index = partition(concept_index,self._hvd.size(),self._hvd.rank())
         encoded_concepts =  [(concept_id,self.encode_concept(concept_id)) for concept_id in concept_index]
-        if hvd:
-            encoded_concepts = hvd.all_gather(encoded_concepts)
+        if self._hvd:
+            encoded_concepts = self._hvd.all_gather(encoded_concepts)
         return EncodedConcepts(encoded_concepts,self._concept_index)
-    def embed_from_concept_encodings(self,encoded_concepts,hvd=None):
-        if hvd:
-            encoded_concepts = partition(encoded_concepts,hvd.size(),hvd.rank())
+    def embed_from_concept_encodings(self,encoded_concepts):
+        if self._hvd:
+            encoded_concepts = partition(encoded_concepts,self._hvd.size(),self._hvd.rank())
         candidate_embeddings = []
         for encoded_concept in encoded_concepts:
             candidate_embeddings.append(self.embed_concept_encoding(encoded_concept))
                 #logger.info(str(candidate_embedding))
-        if hvd:
-            candidate_embeddings = hvd.all_gather(candidate_embeddings)
+        if self._hvd:
+            candidate_embeddings = self._hvd.all_gather(candidate_embeddings)
         embedding_tensor = torch.cat(candidate_embeddings, dim=0)
         #logger.info("INFO: Collected candidate embeddings.")
         return EmbeddedConcepts(embedding_tensor,self._concept_idx,self.hidden_size)
     def get_embedding(self,concept_id):
         return self.get_embedding(self.encode_concept(concept_id))
-    def get_embeddings(self,hvd=None):
-        encoded_concepts = self.get_encodings(hvd)
-        return self.embed_from_concept_encodings(encoded_concepts,hvd=hvd)
+    def get_embeddings(self):
+        encoded_concepts = self.get_encodings()
+        return self.embed_from_concept_encodings(encoded_concepts)
     def get_label_ids(self,doc,num_max_mentions):
         label_ids = [-1] * num_max_mentions
         for i,mention in enumerate(doc.mentions):
@@ -115,11 +116,11 @@ class ConceptEmbedder:
         return m_random_negative_ids
 
 class BertConceptEmbedder(ConceptEmbedder):
-    def __init__(self,*args,bert_model,tokenizer,max_seq_len,lower_case=False):
+    def __init__(self,*args,bert_model,tokenizer,max_ent_len=256 // 4,lower_case=False):
         super().__init__(*args)
         self._bert_model = bert_model 
         self._tokenizer = tokenizer
-        self._max_seq_len = max_seq_len
+        self._max_seq_len = max_ent_len
         self._lower_case = lower_case
         if hasattr(self._bert_model, "module"):
             self._hidden_size = self._bert_model.module.config.hidden_size
@@ -136,13 +137,12 @@ class BertConceptEmbedder(ConceptEmbedder):
         term = self._lkb.get_terms_from_concept_id(concept_id)[0].string
         if self._lower_case:
             term = term.lower()
-        max_entity_len = self._max_seq_len // 4  # Number of tokens
         term_tokens = self._tokenizer.tokenize(term)
-        if len(term_tokens) > max_entity_len:
-            term_tokens = term_tokens[:max_entity_len]
+        if len(term_tokens) > self._max_ent_len:
+            term_tokens = term_tokens[:self._max_ent_len]
         term_tokens = [self._tokenizer.cls_token] + term_tokens + [self._tokenizer.sep_token]
         term_token_ids =self._tokenizer.convert_tokens_to_ids(term_tokens)
-        term_token_ids,term_token_masks = truncate(term_token_ids,self._tokenizer.pad_token_id,max_entity_len)
+        term_token_ids,term_token_masks = truncate(term_token_ids,self._tokenizer.pad_token_id,self._max_ent_len)
         return Encoded_Concept(term_token_ids,term_token_masks)
     def embed_concept_encoding(self,encoded_concept):
         with torch.no_grad():

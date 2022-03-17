@@ -1,5 +1,12 @@
+from copy import copy
+from el_toolkit.entity_linkers.dual_embedder.concept_embedder import BertConceptEmbedder
 from el_toolkit.entity_linkers.dual_embedder.featurizer import BertDualEmbedderTrainFeaturizer, DualEmbedderEvalFeaturizer, DualEmbedderTrainFeaturizer
-from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
+from el_toolkit.entity_linkers.dual_embedder.concept_embedder import BertConceptEmbedder
+from el_toolkit.entity_linkers.dual_embedder.document_embedder import DocumentEmbedder
+from el_toolkit.entity_linkers.dual_embedder.entity_linker import DualEmbedderEntityLinker
+from el_toolkit.entity_linkers.dual_embedder.model import BertMentionDetectorModel,BertDualEmbedderModel
+from transformers import BertModel, BertTokenizer
+from torch.utils.data import DataLoader, RandomSampler
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
 import torch
@@ -29,8 +36,9 @@ class EntityLinker:
     def train(self,docs):
         raise NotImplementedError
 
+
 class DualEmbedderEntityLinker(EntityLinker):
-    def __init__(self,concept_embedder,document_embedder,dual_embedder_model,hvd=None):#Might make sense to turn this into a factory.
+    def __init__(self,concept_embedder,document_embedder,dual_embedder_model,hvd):#Might make sense to turn this into a factory.
         self._concept_embedder = concept_embedder
         self._document_embedder = document_embedder
         self._hvd = hvd
@@ -78,21 +86,14 @@ class DualEmbedderEntityLinker(EntityLinker):
             epoch_iterator = tqdm(train_dataloader, desc="Iteration",disable=True)#, disable=args.local_rank not in [-1, 0])
             epoch_loss = 0 
             for step, batch in enumerate(epoch_iterator):
-                print(1)
                 batch = tuple(t.to(self._device) for t in batch)
-                print(2)
                 inputs = {field:batch[i] for i,field in enumerate(self._train_featurizer.TrainingInputFeatures._fields)}
-                print(3)
                 _,loss = self._dual_embedder_model.forward(**inputs)
-                print(4)
                 loss.backward()
-                print(5)
                 if (step + 1) % gradient_accumulation_steps == 0:
                     torch.nn.utils.clip_grad_norm_(self._dual_embedder_model.parameters(), max_grad_norm)
                     optimizer.step()
-                    print(6)
                     scheduler.step()  # Update learning rate schedule
-                    print(7)
                     self._dual_embedder_model.zero_grad()
                 epoch_loss += loss.item()
             writer.add_scalar('Loss/train', epoch_loss/num_examples, epoch_number)
@@ -102,6 +103,8 @@ class DualEmbedderEntityLinker(EntityLinker):
     @property
     def document_embedder(self):
         return self._document_embedder
+        
 
-
+        
+    
 

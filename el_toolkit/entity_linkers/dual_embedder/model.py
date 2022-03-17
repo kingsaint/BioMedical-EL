@@ -5,12 +5,13 @@ import torch
 
 class BertMentionDetectorModel(nn.Module):#Bert Embeddings + Span Scores
     #takes tokens, spits out hidden layer for each token
-    def __init__(self,bert_model,max_mention_length=256):
+    def __init__(self,bert_model,linear_classifier,max_mention_length=256):
         super().__init__()
         self.bert_mention = bert_model
         self.hidden_size = bert_model.config.hidden_size
         self.max_mention_length = max_mention_length
-        self.bound_classifier = nn.Linear(self.hidden_size, 3)
+        # self.bound_classifier = nn.Linear(self.hidden_size, 3)
+        self.bound_classifier = linear_classifier
         self.init_modules()
         self.loss_fn_ner = nn.BCEWithLogitsLoss()
         self.BIGINT = 1e31
@@ -31,12 +32,7 @@ class BertMentionDetectorModel(nn.Module):#Bert Embeddings + Span Scores
                 mention_start_indices=None,#B x MN
                 mention_end_indices=None,#B x MN
                 ):
-        mention_outputs = self.bert_mention(
-                input_ids=doc_token_ids,
-                attention_mask=doc_token_masks,
-            )
-        last_hidden_states = mention_outputs[0] #B x DL x H
-
+        last_hidden_states = self.get_last_hidden_states(doc_token_ids,doc_token_masks)
         logits = self.bound_classifier(last_hidden_states)  #B x DL x 3
         start_scores, end_scores, mention_scores = logits.split(1, dim=-1) #B x DL x 1
         start_scores = start_scores.squeeze(-1)#B x DL
@@ -115,6 +111,13 @@ class BertMentionDetectorModel(nn.Module):#Bert Embeddings + Span Scores
             inferred_doc_indices,inferred_start_indices,inferred_end_indices = self.infer(valid_doc_indices,valid_start_indices, valid_end_indices, valid_span_scores)
             
             return last_hidden_states,None,inferred_doc_indices,inferred_start_indices,inferred_end_indices
+    def get_last_hidden_states(self,doc_token_ids,doc_token_masks):
+        mention_outputs = self.bert_mention(
+                input_ids=doc_token_ids,
+                attention_mask=doc_token_masks,
+            )
+        last_hidden_states = mention_outputs[0] #B x DL x H
+        return last_hidden_states
     def get_training_mention_embeddings(self,
                                         mention_start_indices,#B x MN
                                         mention_end_indices,#B x MN
@@ -146,9 +149,10 @@ class BertMentionDetectorModel(nn.Module):#Bert Embeddings + Span Scores
         return valid_doc_indices[inferred_span_indices],valid_start_indices[inferred_span_indices],valid_end_indices[inferred_span_indices]
 
 class DualEmbedderModel(nn.Module):
-    def __init__(self,bert_mention):
+    def __init__(self,span_detector):
         super().__init__()
-        self.span_detector = BertMentionDetectorModel(bert_mention)
+        # self.span_detector = BertMentionDetectorModel(bert_mention)
+        self._span_detector = span_detector
         self.loss_fn_linker = nn.CrossEntropyLoss(ignore_index=-1)
         self.BIGINT = 1e31
     def forward(self,
