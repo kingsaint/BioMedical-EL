@@ -101,6 +101,8 @@ class Lexical_Knowledge_Base(Lexical_Knowledge_Base_BC):#Good for simple queries
         for edge in lexical_edges:
             self.concept_id_to_term_ids[edge.concept_id].append(edge.term_id)
             self.term_id_to_concept_ids[edge.term_id].append(edge.concept_id)
+    # def contains_concept(self,concept_id):
+    #     return concept_id in self.id_to_concept
     def get_concept(self,concept_id:str):
         return self.id_to_concept[concept_id]  
     def get_term(self,term_id):

@@ -1,29 +1,39 @@
 import copy
-from transformers import BertModel
-import torch.nn as nn
+import el_toolkit.entity_linkers.config as config
+from el_toolkit.entity_linkers.config import WrappedBertModel
 import torch
+import torch.nn as nn
 
-class BertMentionDetectorModel(nn.Module):#Bert Embeddings + Span Scores
+class BertMentionDetectorModel(nn.Module,config.SavableCompositeComponent):#Bert Embeddings + Span Scores
     #takes tokens, spits out hidden layer for each token
-    def __init__(self,bert_model,linear_classifier,max_mention_length=256):
+    def __init__(self,bert_model,linear_classifier,max_mention_len=256):
         super().__init__()
-        self.bert_mention = bert_model
+        self._bert_model = bert_model
         self.hidden_size = bert_model.config.hidden_size
-        self.max_mention_length = max_mention_length
+        self._max_mention_len = max_mention_len
         # self.bound_classifier = nn.Linear(self.hidden_size, 3)
         self.bound_classifier = linear_classifier
         self.init_modules()
         self.loss_fn_ner = nn.BCEWithLogitsLoss()
         self.BIGINT = 1e31
         self.BIGFLOAT = float(self.BIGINT)
+    @property
+    def bert_model(self):
+        return self._bert_model
+    @property
+    def linear_classifier(self):
+        return self.bound_classifier
+    @property
+    def max_mention_len(self):
+        return  self._max_mention_len
     @classmethod
     def from_pretrained_bert_filepath(cls,filepath,max_mention_length=256):
-        bert_model = BertModel.from_pretrained(filepath)
+        bert_model = WrappedBertModel.from_pretrained(filepath)
         return cls(bert_model,max_mention_length)
     def init_modules(self):
         for module in self.bound_classifier.modules():
             if isinstance(module, nn.Linear):
-                module.weight.data.normal_(mean=0.0, std=self.bert_mention.config.initializer_range)
+                module.weight.data.normal_(mean=0.0, std=self._bert_model.config.initializer_range)
             if isinstance(module, nn.Linear) and module.bias is not None:
                 module.bias.data.zero_()
     def forward(self,
@@ -73,7 +83,7 @@ class BertMentionDetectorModel(nn.Module):#Bert Embeddings + Span Scores
 
         # Spans longer than `max_mention_length` are invalid
         span_lengths = all_end_indices - all_start_indices + 1 #S
-        valid_span_indices = torch.where(span_lengths <= self.max_mention_length)#S (after pruning spans which are too long)
+        valid_span_indices = torch.where(span_lengths <= self._max_mention_len)#S (after pruning spans which are too long)
         valid_doc_indices = all_doc_indices[valid_span_indices]#S (after pruning spans which are too long)
         valid_start_indices = all_start_indices[valid_span_indices]#S (after pruning spans which are too long)
         valid_end_indices = all_end_indices[valid_span_indices]#S (after pruning spans which are too long)
@@ -112,7 +122,7 @@ class BertMentionDetectorModel(nn.Module):#Bert Embeddings + Span Scores
             
             return last_hidden_states,None,inferred_doc_indices,inferred_start_indices,inferred_end_indices
     def get_last_hidden_states(self,doc_token_ids,doc_token_masks):
-        mention_outputs = self.bert_mention(
+        mention_outputs = self._bert_model(
                 input_ids=doc_token_ids,
                 attention_mask=doc_token_masks,
             )
@@ -147,6 +157,11 @@ class BertMentionDetectorModel(nn.Module):#Bert Embeddings + Span Scores
     def infer(valid_doc_indices,valid_start_indices, valid_end_indices, valid_span_scores,threshold=.8):
         inferred_span_indices = torch.where(valid_span_scores > threshold)
         return valid_doc_indices[inferred_span_indices],valid_start_indices[inferred_span_indices],valid_end_indices[inferred_span_indices]
+    def accept(self,visitor):
+        return visitor.visit_span_detector(self)
+    @classmethod
+    def class_accept(cls,visitor):
+        return visitor.visit_span_detector(cls)
 
 class DualEmbedderModel(nn.Module):
     def __init__(self,span_detector):
@@ -172,12 +187,12 @@ class DualEmbedderModel(nn.Module):
             assert label_ids is not None
             
             b_number,max_mention_number = mention_start_indices.shape
-            last_hidden_states,ner_loss,_,_,_ = self.span_detector(doc_token_ids=doc_token_ids,
+            last_hidden_states,ner_loss,_,_,_ = self._span_detector(doc_token_ids=doc_token_ids,
                                                                    doc_token_masks=doc_token_masks,
                                                                    mention_start_indices=mention_start_indices,
                                                                    mention_end_indices=mention_end_indices
                                                                     ) #(B*MN) * H
-            mention_embeddings = self.span_detector.get_training_mention_embeddings(mention_start_indices,mention_end_indices,last_hidden_states) # MB x H
+            mention_embeddings = self._span_detector.get_training_mention_embeddings(mention_start_indices,mention_end_indices,last_hidden_states) # MB x H
             candidate_embeddings = self.get_candidate_embeddings(**kwargs)#(B*MN*C) x H
             candidate_embeddings = candidate_embeddings.reshape(b_number,max_mention_number,-1,self.hidden_size)#B x MN x C x H
             mention_mask = torch.where(mention_start_indices!=-1)
@@ -193,10 +208,10 @@ class DualEmbedderModel(nn.Module):
             return  linker_logits,ner_loss + linking_loss
         else:
             assert all_candidate_embeddings is not None
-            last_hidden_states,_,inferred_doc_indices,inferred_start_indices,inferred_end_indices = self.span_detector(doc_token_ids=doc_token_ids,
+            last_hidden_states,_,inferred_doc_indices,inferred_start_indices,inferred_end_indices = self._span_detector(doc_token_ids=doc_token_ids,
                                                                                                                        doc_token_masks=doc_token_masks
                                                                                                                       )
-            mention_embeddings = self.span_detector.get_eval_mention_embeddings(inferred_doc_indices,inferred_start_indices,inferred_end_indices)
+            mention_embeddings = self._span_detector.get_eval_mention_embeddings(inferred_doc_indices,inferred_start_indices,inferred_end_indices)
             linker_logits = self.all_similarity_score(self,mention_embeddings,all_candidate_embeddings)
             return linker_logits,None
     @staticmethod
@@ -225,10 +240,10 @@ class BertDualEmbedderModel(DualEmbedderModel):
         super().__init__(*args)
         self._bert_candidate = bert_candidate
         self.hidden_size  = bert_candidate.config.hidden_size
-        assert type(self._bert_candidate) == BertModel
+        assert type(self._bert_candidate) == WrappedBertModel
     @classmethod
     def from_pretrained_bert_filepath(cls,filepath):
-        bert_mention = BertModel.from_pretrained(filepath)
+        bert_mention = WrappedBertModel.from_pretrained(filepath)
         bert_candidate = copy.deepcopy(bert_mention)
         return cls(bert_mention,bert_candidate)
     

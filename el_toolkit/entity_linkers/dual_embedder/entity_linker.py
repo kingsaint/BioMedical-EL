@@ -1,11 +1,8 @@
 from copy import copy
-from el_toolkit.entity_linkers.dual_embedder.concept_embedder import BertConceptEmbedder
-from el_toolkit.entity_linkers.dual_embedder.featurizer import BertDualEmbedderTrainFeaturizer, DualEmbedderEvalFeaturizer, DualEmbedderTrainFeaturizer
-from el_toolkit.entity_linkers.dual_embedder.concept_embedder import BertConceptEmbedder
-from el_toolkit.entity_linkers.dual_embedder.document_embedder import DocumentEmbedder
-from el_toolkit.entity_linkers.dual_embedder.entity_linker import DualEmbedderEntityLinker
-from el_toolkit.entity_linkers.dual_embedder.model import BertMentionDetectorModel,BertDualEmbedderModel
-from transformers import BertModel, BertTokenizer
+import el_toolkit.entity_linkers.config as config
+from el_toolkit.entity_linkers.dual_embedder.featurizer import BertDualEmbedderTrainFeaturizer, DualEmbedderEvalFeaturizer
+from el_toolkit.entity_linkers.dual_embedder.model import BertDualEmbedderModel
+from el_toolkit.lkb.lexical_knowledge_base import Lexical_Knowledge_Base
 from torch.utils.data import DataLoader, RandomSampler
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
@@ -17,17 +14,6 @@ from transformers import (
     get_linear_schedule_with_warmup,
 )
 
-def truncate(token_ids,pad_token_id,max_seq_len):
-    if len(token_ids) > max_seq_len:
-        token_ids = token_ids[:max_seq_len]
-        tokens_mask = [1] * max_seq_len
-    else:
-        token_number = len(token_ids)
-        pad_len = max_seq_len - token_number
-        token_ids += [pad_token_id] * pad_len
-        tokens_mask = [1] * token_number + [0] * pad_len
-    return token_ids,tokens_mask
-
 class EntityLinker:
     def __init__(self):
         raise NotImplementedError
@@ -37,16 +23,30 @@ class EntityLinker:
         raise NotImplementedError
 
 
-class DualEmbedderEntityLinker(EntityLinker):
-    def __init__(self,concept_embedder,document_embedder,dual_embedder_model,hvd):#Might make sense to turn this into a factory.
-        self._concept_embedder = concept_embedder
+class DualEmbedderEntityLinker(EntityLinker,config.SavableCompositeComponent):
+    def __init__(self,bert_concept_embedder,document_embedder,knowledge_data_path=None,distributed=False):#Might make sense to turn this into a factory.
+        self._concept_embedder = bert_concept_embedder
         self._document_embedder = document_embedder
-        self._hvd = hvd
-        self._train_featurizer = BertDualEmbedderTrainFeaturizer(concept_embedder.lkb,self,hvd=self._hvd)
+        self._dual_embedder_model = BertDualEmbedderModel(self._concept_embedder.bert_model,document_embedder.span_detector)
+        self._distributed = distributed
+        if self._distributed:
+            import horovod.torch as hvd
+            self._hvd = hvd
+        self._knowledge_data_path = knowledge_data_path
+        lkb = Lexical_Knowledge_Base.read_json(knowledge_data_path)
+        self._train_featurizer = BertDualEmbedderTrainFeaturizer(lkb,self,distributed=distributed)
         self._eval_featurizer =  DualEmbedderEvalFeaturizer(self)
-        self._dual_embedder_model = dual_embedder_model
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._dual_embedder_model.to(self._device)
+    @property
+    def concept_embedder(self):
+        return self._concept_embedder
+    @property
+    def document_embedder(self):
+        return self._document_embedder
+    @property
+    def knowledge_data_path(self):
+        return self._knowledge_data_path
     def train_featurize(self,docs,num_hard_negatives=0,num_random_negatives=0,num_max_mentions=8):
         return self._train_featurizer.featurize(docs,num_hard_negatives=num_hard_negatives,num_random_negatives=num_random_negatives,num_max_mentions=num_max_mentions)
     def eval_featurize(self,docs):
@@ -56,7 +56,11 @@ class DualEmbedderEntityLinker(EntityLinker):
         t_total = len(docs) // gradient_accumulation_steps * num_epochs
         self._dual_embedder_model.zero_grad()
         epochs_trained = 0
-        train_iterator = trange(epochs_trained, num_epochs, desc="Epoch",disable=self._hvd.rank()!=0 if self._hvd else False 
+        if self._distributed:
+            disable = self._hvd.rank()!=0
+        else:
+            disable = False
+        train_iterator = trange(epochs_trained, num_epochs, desc="Epoch",disable=disable
                                )
         no_decay = ["bias", "LayerNorm.weight"]
         optimizer_grouped_parameters = [
@@ -66,7 +70,7 @@ class DualEmbedderEntityLinker(EntityLinker):
             },
             {"params": [p for n, p in self._dual_embedder_model.named_parameters() if any(nd in n for nd in no_decay)], "weight_decay": weight_decay},
         ]
-        if self._hvd:#distributed
+        if self._distributed:#distributed
             optimizer = AdamW(optimizer_grouped_parameters, lr=learning_rate * self._hvd.size(), eps=adam_epsilon)
             optimizer = self._hvd.DistributedOptimizer(optimizer, named_parameters=self._dual_embedder_model.named_parameters())
             self._hvd.broadcast_parameters(self._dual_embedder_model.state_dict(), root_rank=0)
@@ -80,7 +84,7 @@ class DualEmbedderEntityLinker(EntityLinker):
         print("TRAINING STARTING")
         for epoch_number in train_iterator:
             train_dataset = self.train_featurize(docs,num_hard_negatives=num_hard_negatives,num_random_negatives=num_random_negatives,num_max_mentions=num_max_mentions)
-            train_sampler = RandomSampler(train_dataset) if not self._hvd else DistributedSampler(train_dataset, num_replicas=self._hvd.size(), rank=self._hvd.rank())
+            train_sampler = RandomSampler(train_dataset) if not self._distributed else DistributedSampler(train_dataset, num_replicas=self._hvd.size(), rank=self._hvd.rank())
             train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=single_node_batch_size)
             num_examples = len(train_dataloader)
             epoch_iterator = tqdm(train_dataloader, desc="Iteration",disable=True)#, disable=args.local_rank not in [-1, 0])
@@ -103,6 +107,12 @@ class DualEmbedderEntityLinker(EntityLinker):
     @property
     def document_embedder(self):
         return self._document_embedder
+    def accept(self,visitor):
+        return visitor.visit_dual_embedder(self)
+    @classmethod
+    def class_accept(cls,visitor):
+        return visitor.visit_dual_embedder(cls)
+    
         
 
         

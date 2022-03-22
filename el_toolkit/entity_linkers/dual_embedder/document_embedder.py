@@ -1,17 +1,24 @@
-from el_toolkit.entity_linkers.dual_embedder.entity_linker import truncate
+import el_toolkit.entity_linkers.config as config
+from el_toolkit.utils import truncate
 import torch
-class DocumentEmbedder:
+class DocumentEmbedder(config.SavableCompositeComponent):
     def __init__(self,span_detector,tokenizer,max_seq_len=256,lower_case=False):
         self._span_detector = span_detector
         self._tokenizer = tokenizer
         self._max_seq_len = max_seq_len
         self._lower_case = lower_case
     @property
+    def span_detector(self):
+        return self._span_detector
+    @property
     def tokenizer(self):
         return self._tokenizer
     @property
     def max_seq_len(self):
         return self._max_seq_len
+    @property
+    def lower_case(self):
+        return self._lower_case
     def encode_document(self,doc):
         if self._lower_case:
             doc = doc.lower()
@@ -81,3 +88,8 @@ class DocumentEmbedder:
             seq_tag_ids.append(tag_to_id_map[t])
         seq_tag_ids.append(-100)  # corresponds to the [SEP] token
         return seq_tag_ids
+    def accept(self,visitor):
+        return visitor.visit_document_embedder(self)
+    @classmethod
+    def class_accept(cls,visitor):
+        return visitor.visit_document_embedder(cls)

@@ -1,7 +1,7 @@
 from collections import namedtuple
-from el_toolkit.entity_linkers.dual_embedder.entity_linker import truncate
+import el_toolkit.entity_linkers.config as config
+from el_toolkit.utils import truncate
 import torch
-import random
 
 
 class ConceptIndex:
@@ -68,73 +68,68 @@ class EmbeddedConcepts:
         return self._embedding_tensor[index]
 
 class ConceptEmbedder:
-    def __init__(self,lkb,hvd): 
-        self._hvd= hvd
-        self._lkb = lkb
-        self._concept_ids = lkb.get_concept_ids()
-        self._concept_index = ConceptIndex(list(self._concept_ids))
-    @property
-    def lkb(self):
-        return self._lkb
-    def get_encodings(self):
-        concept_index = self._concept_index
-        if self._hvd:
+    def __init__(self,distributed=False): 
+        self._distributed = distributed
+        if self._distributed:
+            import horovod.torch as hvd
+            self._hvd = hvd
+    def get_encodings(self,lkb):
+        concept_ids = lkb.get_concept_ids()
+        concept_index = ConceptIndex(list(concept_ids))
+        if self._distributed:
             concept_index = partition(concept_index,self._hvd.size(),self._hvd.rank())
-        encoded_concepts =  [(concept_id,self.encode_concept(concept_id)) for concept_id in concept_index]
-        if self._hvd:
+        encoded_concepts =  [(concept_id,self.encode_concept(concept_id,lkb)) for concept_id in concept_index]
+        if self._distributed:
             encoded_concepts = self._hvd.all_gather(encoded_concepts)
-        return EncodedConcepts(encoded_concepts,self._concept_index)
+        return EncodedConcepts(encoded_concepts,concept_index)
     def embed_from_concept_encodings(self,encoded_concepts):
-        if self._hvd:
+        if self._distributed:
             encoded_concepts = partition(encoded_concepts,self._hvd.size(),self._hvd.rank())
         candidate_embeddings = []
         for encoded_concept in encoded_concepts:
             candidate_embeddings.append(self.embed_concept_encoding(encoded_concept))
                 #logger.info(str(candidate_embedding))
-        if self._hvd:
+        if self._distributed:
             candidate_embeddings = self._hvd.all_gather(candidate_embeddings)
         embedding_tensor = torch.cat(candidate_embeddings, dim=0)
         #logger.info("INFO: Collected candidate embeddings.")
         return EmbeddedConcepts(embedding_tensor,self._concept_idx,self.hidden_size)
-    def get_embedding(self,concept_id):
-        return self.get_embedding(self.encode_concept(concept_id))
-    def get_embeddings(self):
-        encoded_concepts = self.get_encodings()
+    def get_embedding(self,concept_id,lkb):
+        return self.get_embedding(self.encode_concept(concept_id,lkb))
+    def get_embeddings(self,lkb):
+        encoded_concepts = self.get_encodings(lkb)
         return self.embed_from_concept_encodings(encoded_concepts)
-    def get_label_ids(self,doc,num_max_mentions):
-        label_ids = [-1] * num_max_mentions
-        for i,mention in enumerate(doc.mentions):
-            if i < num_max_mentions:
-                if mention.concept_id in self._concept_index:
-                    label_ids[i] = 0
-                # else:
-                #     label_ids[i] = -100 
-        return label_ids
-    def get_random_negative_concept_ids(self,concept_id,k):
-        candidate_pool = self._concept_ids - set(concept_id)
-        m_random_negative_ids = random.sample(candidate_pool,k)
-        return m_random_negative_ids
-
-class BertConceptEmbedder(ConceptEmbedder):
-    def __init__(self,*args,bert_model,tokenizer,max_ent_len=256 // 4,lower_case=False):
-        super().__init__(*args)
+    def accept(self,visitor):
+        return visitor.visit_concept_embedder(self)
+    @classmethod
+    def class_accept(cls,visitor):
+        return visitor.visit_concept_embedder(cls)
+class BertConceptEmbedder(ConceptEmbedder,config.SavableCompositeComponent):
+    def __init__(self,bert_model,tokenizer,max_ent_len=256 // 4,lower_case=False,*args,**kwargs):
+        super().__init__(*args,**kwargs)
         self._bert_model = bert_model 
         self._tokenizer = tokenizer
-        self._max_seq_len = max_ent_len
+        self._max_ent_len = max_ent_len
         self._lower_case = lower_case
         if hasattr(self._bert_model, "module"):
             self._hidden_size = self._bert_model.module.config.hidden_size
         else:
             self._hidden_size = self._bert_model.config.hidden_size
     @property
-    def max_seq_len(self):
-        return self._max_seq_len
+    def lower_case(self):
+        return self._lower_case
+    @property
+    def bert_model(self):
+        return self._bert_model
+    @property
+    def max_ent_len(self):
+        return self._max_ent_len
     @property
     def tokenizer(self):
         return self._tokenizer
-    def encode_concept(self,concept_id):
+    def encode_concept(self,concept_id,lkb):
         Encoded_Concept = namedtuple("Encoded_Concept",["token_ids","token_masks"])
-        term = self._lkb.get_terms_from_concept_id(concept_id)[0].string
+        term = lkb.get_terms_from_concept_id(concept_id)[0].string
         if self._lower_case:
             term = term.lower()
         term_tokens = self._tokenizer.tokenize(term)
