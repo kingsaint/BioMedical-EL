@@ -30,4 +30,5 @@ build/lib/bmel/tokenization_utils.py
 build/lib/bmel/tokenization.py
 build/lib/bmel/utils_e2e_span.py
 data/knowledge_datasets/trend.json
-runs/.*
+runs/*
+first_attempt/*
