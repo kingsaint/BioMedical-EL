@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from el_toolkit.lkb.lexical_knowledge_base import Lexical_Knowledge_Base
+from lkb.basic_lkb import Lexical_Knowledge_Base
 from IPython.display import display, HTML
 
 class Displayable():

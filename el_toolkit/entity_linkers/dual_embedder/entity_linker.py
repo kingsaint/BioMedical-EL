@@ -2,7 +2,7 @@ from copy import copy
 import el_toolkit.entity_linkers.config as config
 from el_toolkit.entity_linkers.dual_embedder.featurizer import BertDualEmbedderTrainFeaturizer, DualEmbedderEvalFeaturizer
 from el_toolkit.entity_linkers.dual_embedder.model import BertDualEmbedderModel
-from el_toolkit.lkb.lexical_knowledge_base import Lexical_Knowledge_Base
+from lkb.basic_lkb import Lexical_Knowledge_Base
 from torch.utils.data import DataLoader, RandomSampler
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
