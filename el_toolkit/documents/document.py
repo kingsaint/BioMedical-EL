@@ -3,7 +3,7 @@ from collections import namedtuple
 from dataclasses import dataclass
 from ipymarkup.demo import format_span_line_markup
 import json
-from el_toolkit.data_displayer import Displayable
+from .data_displayer import Displayable
 
 from ipymarkup import show_span_line_markup
 
