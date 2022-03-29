@@ -32,3 +32,4 @@ build/lib/bmel/utils_e2e_span.py
 data/knowledge_datasets/trend.json
 runs/*
 first_attempt/*
+*.pyc
