@@ -1,0 +1,114 @@
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix : <http://www.w3.org/2002/07/owl#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<http://id.trendnet/vocab#> rdf:type :Ontology .
+
+#################################################################
+#
+#    Object Properties
+#
+#################################################################
+
+<http://id.trendnet/vocab#term> rdf:type :ObjectProperty ;
+
+                                           rdfs:label "term" ;
+
+                                           rdfs:comment "Relates Terms to Concepts" ;
+
+                                           dct:description "Relates Terms to Concepts" .
+
+#################################################################
+#
+#    Data properties
+#
+#################################################################
+
+<http://id.trendnet/vocab#identifier> rdf:type :DatatypeProperty ;
+
+                                              rdfs:label "identifier" ;
+
+                                              rdfs:comment "A property of Concepts, Terms, and Relations." ;
+
+                                              dct:description "A property of Concepts, Terms, and Relations." .
+
+
+<http://id.trendnet/vocab#string> rdf:type :DatatypeProperty ;
+
+                                             rdfs:label "prefLabel" ;
+
+                                             rdfs:comment "A property of Terms and Concept Relations. The preferred string for the term. lkb:string is a subproperty of rdfs:label." ;
+
+                                             dct:description "A property of Terms. The preferred string for the term. meshv:prefLabel is a subproperty of rdfs:label." ;
+
+                                             rdfs:subPropertyOf rdfs:label .
+
+
+
+
+#################################################################
+#
+#    Classes
+#
+#################################################################
+
+
+<http://id.trendnet/vocab#Concept> rdf:type :Class ;
+
+                                           rdfs:label "LKB Concept" ;
+
+                                           rdfs:subClassOf :Thing ;
+
+                                           :disjointWith <http://id.nlm.nih.gov/mesh/vocab#Term> ;
+                                                         
+                                           rdfs:comment "LKB concepts are meanings. Many LKB concepts contain synonymous terms." ;
+
+                                           dct:description "LKB concepts are meanings. Many LKB concepts contain synonymous terms." .
+
+<http://id.trendnet/vocab#Term> rdf:type :Class ;
+
+                                           rdfs:label "LKB Term" ;
+
+                                           rdfs:subClassOf :Thing ;
+
+                                           :disjointWith <http://id.nlm.nih.gov/mesh/vocab#Concept> ;
+                                                         
+
+                                           rdfs:comment "Terms provide synonymous names for LKB concepts. Many LKB concepts contain synonymous terms." ;
+
+                                           dct:description "Terms provide synonymous names for LKB concepts. Many LKB concepts contain synonymous terms." .
+
+<http://id.trendnet/vocab#Conceptual_Relation> rdf:type :Class ;
+
+                                           rdfs:label "Conceptual Relation" ;
+
+                                           rdfs:subClassOf :Thing ;
+
+                                           :disjointWith <http://id.nlm.nih.gov/mesh/vocab#Term> ,
+                                                         <http://id.nlm.nih.gov/mesh/vocab#Concept>,
+                                                         <http://id.nlm.nih.gov/mesh/vocab#Term> ;
+                                                        
+                                           rdfs:comment "LKB concepts are meanings. Many LKB concepts contain synonymous terms." .
+<http://id.trendnet/vocab#Additional_Concept_Attribue> rdf:type :Class ;
+
+                                           rdfs:label "Concept Attribute" ;
+
+                                           rdfs:subClassOf :ObjectProperty ;
+
+                                           :disjointWith <http://id.nlm.nih.gov/mesh/vocab#Term> ,
+                                                         <http://id.nlm.nih.gov/mesh/vocab#Concept>,
+                                                         <http://id.nlm.nih.gov/mesh/vocab#Term> ,
+                                                         <http://id.trendnet/vocab#Conceptual_Relation>;
+                                                        
+                                           rdfs:comment "Concept Attributes which may change between LKB's" .
+
+#################################################################
+#
+#    Property
+#
+#################################################################
+

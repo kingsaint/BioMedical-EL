@@ -1,0 +1,72 @@
+{
+  "concepts": [
+    {
+      "id": "C1"
+    },
+    {
+      "id": "C2"
+    },
+    {
+      "id": "C3"
+    }
+  ],
+  "terms": [
+    {
+      "id": "T1",
+      "string": "Test Term 1"
+    },
+    {
+      "id": "T2",
+      "string": "Test Term 2"
+    },
+    {
+      "id": "T3",
+      "string": "Test Term 3"
+    }
+  ],
+  "conceptual_edges": [
+    {
+      "concept_id_1": "C1",
+      "concept_id_2": "C2",
+      "rel_id": "R1"
+    },
+    {
+      "concept_id_1": "C1",
+      "concept_id_2": "C3",
+      "rel_id": "R2"
+    },
+    {
+      "concept_id_1": "C3",
+      "concept_id_2": "C2",
+      "rel_id": "R1"
+    }
+  ],
+  "lexical_edges": [
+    {
+      "concept_id": "C1",
+      "term_id": "T1"
+    },
+    {
+      "concept_id": "C2",
+      "term_id": "T1"
+    },
+    {
+      "concept_id": "C3",
+      "term_id": "T2"
+    },
+    {
+      "concept_id": "C3",
+      "term_id": "T3"
+    }
+  ],
+  "conceptual_relations": [
+    {
+      "id": "R1",
+      "string": "Test Relation 1"
+    },
+    {
+      "id": "R2",
+      "string": "Test Relation 2"
+    }
+  ]
+}

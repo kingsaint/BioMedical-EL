@@ -1,0 +1,24 @@
+{
+  "input_filepath": "tests/test_data/test_knowledge_data/small_example.json",
+  "random_inputs": "C2",
+  "expected_output": [
+    [
+      {
+        "id": "R1",
+        "string": "Test Relation 1"
+      },
+      {
+        "id": "C1"
+      }
+    ],
+    [
+      {
+        "id": "R1",
+        "string": "Test Relation 1"
+      },
+      {
+        "id": "C3"
+      }
+    ]
+  ]
+}

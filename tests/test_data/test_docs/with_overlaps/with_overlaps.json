@@ -1,0 +1,21 @@
+{
+  "doc_id": "with_overlaps",
+  "message": "This is a good example of a test sentence.",
+  "mentions": [
+    {
+      "start_index": 0,
+      "end_index": 4,
+      "concept_id": "C222222"
+    },
+    {
+      "start_index": 15,
+      "end_index": 22,
+      "concept_id": "C123456"
+    },
+    {
+      "start_index": 15,
+      "end_index": 41,
+      "concept_id": "C11111"
+    }
+  ]
+}
