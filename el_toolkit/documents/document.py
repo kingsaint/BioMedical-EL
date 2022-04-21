@@ -36,15 +36,20 @@ class Mention:#Only let document initialize this class
         return str({"start_index":self.start_index,"end_index":self.end_index,"concept_id":self.concept_id,"text":self.text})
 
 class Document(Displayable):
-    def __init__(self,doc_id,message,mentions):
-        self.doc_id = doc_id
-        self.message = message
+    def __init__(self,message,mentions=[]):
+        self._message = message
         for mention in mentions:
             mention.set_doc(self)
         self._mentions = mentions
     @property
     def mentions(self):
         return self._mentions
+    @property
+    def message(self):
+        return self._message
+    @property
+    def doc_id(self):
+        return self._doc_id
     @classmethod
     def read_json(cls,file_path):
         with open(file_path, 'r') as infile:
@@ -56,7 +61,7 @@ class Document(Displayable):
         with open(file_path, 'w+') as infile:
             json.dump(data,infile)
     def get_data(self):
-        return {"doc_ids":self.doc_id,"message":self.message,"mentions":[mention.mention_data for mention in self._mentions]}
+        return {"message":self.message,"mentions":[mention.mention_data for mention in self._mentions]}
     def check_for_span_overlaps(self):
         for mention_1 in self.mentions:
             for mention_2 in self.mentions:
@@ -64,7 +69,7 @@ class Document(Displayable):
                     return True
         return False
     def __repr__(self):
-        return f"doc_id:{self.doc_id}\n{'-'*20}\nmessage:{self.message}\n{'-'*20}\nmentions:{[mention.__repr__() for mention in self._mentions]}"
+        return f"message:{self.message}\n{'-'*20}\nmentions:{[mention.__repr__() for mention in self._mentions]}"
     def segment(self:Document,tokenizer,max_mention_per_new_doc) -> list(Document):
         assert not self.check_for_span_overlaps()
         def segment_recursive(remaining_text,remaining_mentions,doc_number=0,prev_seq_len=0):

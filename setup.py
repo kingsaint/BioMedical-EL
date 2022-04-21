@@ -9,6 +9,8 @@ setup(
                     'torch',
                     'mpi4py',
                     'ipymarkup',
+                    'IPython',
+                    'ahocorapy',
                     'lkb @ git+https://github.com/trend-community/LKB#egg=lkb&subdirectory=lkb'
                    ]
 )

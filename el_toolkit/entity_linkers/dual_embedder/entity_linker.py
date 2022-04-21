@@ -1,4 +1,5 @@
 from copy import copy
+from el_toolkit.entity_linkers.base_entity_linker import EntityLinker
 import el_toolkit.entity_linkers.config as config
 from el_toolkit.entity_linkers.dual_embedder.featurizer import BertDualEmbedderTrainFeaturizer, DualEmbedderEvalFeaturizer
 from el_toolkit.entity_linkers.dual_embedder.model import BertDualEmbedderModel
@@ -14,13 +15,7 @@ from transformers import (
     get_linear_schedule_with_warmup,
 )
 
-class EntityLinker:
-    def __init__(self):
-        raise NotImplementedError
-    def featurize(self,docs,lkb):
-        raise NotImplementedError
-    def train(self,docs):
-        raise NotImplementedError
+
 
 
 class DualEmbedderEntityLinker(EntityLinker,config.SavableCompositeComponent):
